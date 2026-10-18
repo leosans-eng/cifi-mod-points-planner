@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIFI Mod Points Planner</title>
+<link rel="icon" href="ModPoints.png" type="image/png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <button type="button" class="brand" data-go="home" aria-label="Home">
+      <img src="ModPoints.png" alt="" width="28" height="28">
+      <span class="brand-text">
+        <b>Mod Points Planner</b>
+        <small>CIFI · Based on Mod Tree Cultivator v1.2.0.11</small>
+      </span>
+    </button>
+    <nav class="tabs" aria-label="Sections">
+      <button type="button" data-tab="home" class="tab">Home</button>
+      <button type="button" data-tab="plan" class="tab">Buy order</button>
+      <button type="button" data-tab="levels" class="tab">Owned levels</button>
+      <button type="button" data-tab="settings" class="tab">Weights and progress</button>
+      <button type="button" data-tab="map" class="tab">Map</button>
+    </nav>
+  </div>
+</header>
+<main id="app"></main>
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
