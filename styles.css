@@ -205,6 +205,8 @@ code { font-family: Consolas, monospace; font-size: 0.92em; background: var(--bg
 .theme-choice.is-on:has(.config-example)::after { margin-left: 10px; }
 .config-example { margin-left: auto; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .config-check { display: flex; gap: 8px; align-items: center; margin-top: 4px; font-size: 14px; }
+.theme-choices.is-off { opacity: 0.45; }
+.theme-choices.is-off .theme-choice { pointer-events: none; }
 .config-menu { width: 260px; max-height: calc(100vh - 80px); overflow: auto; }
 .swatch { display: flex; width: 42px; height: 16px; flex: none; border: 1px solid var(--line-strong); border-radius: 0; overflow: hidden; }
 .swatch i { flex: 1; }
@@ -224,6 +226,10 @@ code { font-family: Consolas, monospace; font-size: 0.92em; background: var(--bg
   align-items: start;
 }
 .side { position: sticky; top: calc(var(--topbar) + 20px); }
+.side.has-minimap { max-height: calc(100vh - var(--topbar) - 40px); overflow: auto; }
+.plan-minimap { margin-top: 14px; }
+.plan-minimap[hidden] { display: none; }
+.plan-minimap .mini-map { width: 100%; height: auto; aspect-ratio: 4 / 3; }
 .split > *, .map-layout > *, .home > *, .settings-layout > * { min-width: 0; }
 .side > .field + .note { margin-top: 6px; }
 
@@ -383,6 +389,43 @@ input[type="checkbox"] { accent-color: var(--amber); }
 }
 .next h2 { margin: 0 0 4px; font-size: 20px; font-weight: 650; }
 .next p { margin: 0; color: var(--muted); }
+.next-copy { min-width: 0; }
+.next-side { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.mini-map {
+  position: relative;
+  width: 168px;
+  height: 126px;
+  flex: none;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: var(--map-well);
+  cursor: pointer;
+}
+.mini-map:hover,
+.mini-map:focus-visible { border-color: var(--amber); }
+.mini-map:focus-visible { outline: 2px solid var(--amber-focus); outline-offset: 2px; }
+.mini-map-sheet { position: absolute; display: block; }
+.mini-map img { display: block; width: 100%; height: 100%; pointer-events: none; user-select: none; }
+.mini-map-block img,
+.mini-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mini-map svg { pointer-events: none; }
+.mini-map svg polygon {
+  fill: var(--amber-wash);
+  stroke: #4fd8ff;
+  stroke-width: 28;
+  stroke-linejoin: round;
+}
+.mini-map-pin {
+  position: absolute;
+  aspect-ratio: 1;
+  border: 2px solid #ff4fd8;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #4fd8ff;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
 .goal {
   display: grid;
   gap: 2px;
@@ -406,7 +449,19 @@ input[type="checkbox"] { accent-color: var(--amber); }
   background: var(--bg-row);
   border: 1px solid transparent;
 }
-.buy.is-next { border-color: var(--amber); scroll-margin-top: calc(var(--topbar) + 108px); }
+.buy.is-check { grid-template-columns: auto auto 1fr auto; }
+.buy-n {
+  min-width: 3.2ch;
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.buy.is-next { border-color: var(--amber); scroll-margin-top: calc(var(--topbar) + 176px); }
+body[data-minimap="side"] .buy.is-next,
+body[data-minimap="off"] .buy.is-next { scroll-margin-top: calc(var(--topbar) + 108px); }
 .buy.is-done { opacity: 0.45; }
 body[data-density="compact"] .buy,
 body[data-density="compact"] .mod-row { padding: 3px 10px; gap: 8px; }
@@ -619,6 +674,7 @@ h3 { margin: 18px 0 8px; font-size: 16px; }
   .split, .map-layout, .home { grid-template-columns: 1fr; }
   .home { gap: 28px; padding-top: 4px; }
   .side { position: static; }
+  .side.has-minimap { max-height: none; overflow: visible; }
   .map-scroll { height: 70vh; }
   .brand-text small { display: none; }
   .topbar-inner { gap: 16px; padding: 0 16px; }
@@ -631,8 +687,11 @@ h3 { margin: 18px 0 8px; font-size: 16px; }
   .tab { padding: 0 9px; }
   .tab.is-on::after { left: 9px; right: 9px; }
   .next { grid-template-columns: 1fr; }
+  .mini-map { width: 120px; height: 90px; }
   .buy { grid-template-columns: auto 1fr; }
+  .buy.is-check { grid-template-columns: auto auto 1fr; }
   .cost { grid-column: 2; text-align: left; }
+  .buy.is-check .cost { grid-column: 3; }
   .settings .dense { grid-template-columns: 1fr 1fr; }
   .list-head { flex-wrap: wrap; position: static; }
   .seg { flex-wrap: wrap; }

@@ -8,6 +8,7 @@
   applyTheme();
   applyCostStyle();
   applyDensity();
+  applyMiniMap();
   selectEditableOnClick();
   bindConfig();
 
@@ -75,6 +76,8 @@
       theme: "red",
       costStyle: "suffix",
       compact: false,
+      miniMap: true,
+      miniMapPlace: "side",
     };
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
@@ -119,6 +122,8 @@
       theme: state.theme,
       costStyle: state.costStyle,
       compact: state.compact,
+      miniMap: state.miniMap,
+      miniMapPlace: state.miniMapPlace,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
   }
@@ -155,6 +160,28 @@
     if (box) box.checked = state.compact;
   }
 
+  function miniMapEnabled() {
+    return state.miniMap !== false;
+  }
+
+  function applyMiniMap() {
+    state.miniMap = state.miniMap !== false;
+    state.miniMapPlace = state.miniMapPlace === "side" ? "side" : "card";
+    const box = document.getElementById("show-minimap");
+    if (box) box.checked = state.miniMap;
+    const group = document.getElementById("minimap-place");
+    if (group) {
+      group.classList.toggle("is-off", !state.miniMap);
+      group.setAttribute("aria-disabled", state.miniMap ? "false" : "true");
+    }
+    document.querySelectorAll("[data-map-place]").forEach((button) => {
+      const on = button.dataset.mapPlace === state.miniMapPlace;
+      button.classList.toggle("is-on", on);
+      button.setAttribute("aria-checked", on ? "true" : "false");
+    });
+    document.body.dataset.minimap = state.miniMap ? state.miniMapPlace : "off";
+  }
+
   function setConfigOpen(open) {
     const menu = document.getElementById("config-menu");
     const button = document.getElementById("config-btn");
@@ -181,17 +208,32 @@
         return;
       }
       const cost = event.target.closest("[data-cost-pick]");
-      if (!cost) return;
-      state.costStyle = cost.dataset.costPick;
-      applyCostStyle();
+      if (cost) {
+        state.costStyle = cost.dataset.costPick;
+        applyCostStyle();
+        saveState();
+        render();
+        return;
+      }
+      const place = event.target.closest("[data-map-place]");
+      if (!place || !miniMapEnabled()) return;
+      state.miniMapPlace = place.dataset.mapPlace === "side" ? "side" : "card";
+      applyMiniMap();
       saveState();
-      render();
+      if (state.tab === "plan") paintResults();
     });
     menu.addEventListener("change", (event) => {
-      if (event.target.id !== "compact-lists") return;
-      state.compact = event.target.checked;
-      applyDensity();
+      if (event.target.id === "compact-lists") {
+        state.compact = event.target.checked;
+        applyDensity();
+        saveState();
+        return;
+      }
+      if (event.target.id !== "show-minimap") return;
+      state.miniMap = event.target.checked;
+      applyMiniMap();
       saveState();
+      if (state.tab === "plan") paintResults();
     });
     document.addEventListener("click", (event) => {
       if (!event.target.closest(".config")) setConfigOpen(false);
@@ -448,6 +490,7 @@
           <hr>
           ${owned === 0 ? `<p class="warn small">Every mod is still level 0. Open <a href="#" data-go="levels">Owned levels</a> and enter what you already bought, or this list starts from a fresh tree.</p>` : `<p class="note small">${owned} mods have a saved level. The order starts from those.</p>`}
           ${completionHtml()}
+          <div id="plan-minimap" class="plan-minimap" hidden></div>
         </aside>
         <section class="panel main" id="results"></section>
       </div>`;
@@ -493,6 +536,7 @@
     const results = document.getElementById("results");
     if (log == null) {
       results.innerHTML = `<p class="warn">That MP value could not be read.</p>`;
+      paintSideMiniMap(null);
       return;
     }
     recordRun(log);
@@ -518,6 +562,7 @@
         <h2>No buy order yet</h2>
         <p>Enter this reset's MP, then press Build buy order.</p>
       </div>`;
+      paintSideMiniMap(null);
       return;
     }
     if (!plan.groups.length) {
@@ -525,6 +570,7 @@
         <h2>Nothing to buy</h2>
         <p>This MP can't afford any eligible level. Raise the amount, check your owned levels, or turn off “Only unlocked mods”.</p>
       </div>${nextGoalHtml(plan.nextGoal)}`;
+      paintSideMiniMap(null);
       return;
     }
     const bought = state.checked.filter(Boolean).length;
@@ -532,6 +578,7 @@
     const next = nextIndex === -1 ? null : plan.groups[nextIndex];
     const spentThrough = nextIndex === 0 ? null : plan.groups[Math.max(0, (nextIndex === -1 ? plan.groups.length : nextIndex) - 1)];
     const leftLog = spentThrough ? spentThrough.endLogMp : plan.startLog;
+    const mapInCard = !!(next && miniMapEnabled() && state.miniMapPlace !== "side");
     results.innerHTML = `
       <div class="stats">
         <div class="stat"><b>${plan.steps.toLocaleString()}</b><span>levels to buy</span></div>
@@ -541,12 +588,15 @@
       </div>
       ${plan.stopped ? `<p class="warn">Stopped early so the page stayed responsive. Plan again after marking some of these bought, or with a smaller MP.</p>` : ""}
       <article class="next">
-        <div>
+        <div class="next-copy">
           <p class="meta">Next purchase</p>
           <h2>${next ? esc(next.name) : "List complete"}</h2>
           <p>${next ? `${codeButton(next.code)} · ${levelRange(next.from, next.to)} · ${mpAmount(next.costLog)}` : "Every row in this order is checked."}</p>
         </div>
-        <button class="btn" id="mark-next" type="button" ${next ? "" : "disabled"}>Mark bought</button>
+        <div class="next-side">
+          ${mapInCard ? miniMapHtml(next.code) : ""}
+          <button class="btn" id="mark-next" type="button" ${next ? "" : "disabled"}>Mark bought</button>
+        </div>
       </article>
       <div class="toolbar">
         <button class="btn ghost" type="button" id="mode-order">Buy order</button>
@@ -617,6 +667,22 @@
       revealNext = false;
     }
     paintCompletion();
+    paintSideMiniMap(next && miniMapEnabled() && state.miniMapPlace === "side" ? next.code : null);
+  }
+
+  function paintSideMiniMap(code) {
+    const slot = document.getElementById("plan-minimap");
+    if (!slot) return;
+    const side = slot.closest(".side");
+    if (!code) {
+      slot.hidden = true;
+      slot.innerHTML = "";
+      if (side) side.classList.remove("has-minimap");
+      return;
+    }
+    slot.hidden = false;
+    slot.innerHTML = miniMapHtml(code);
+    if (side) side.classList.add("has-minimap");
   }
 
   function nextGoalHtml(goal) {
@@ -630,8 +696,9 @@
   }
 
   function rowHtml(row) {
-    return `<label class="buy${row.done ? " is-done" : ""}${row.next ? " is-next" : ""}">
-      ${row.checkable ? `<input type="checkbox" data-i="${row.index}" ${row.done ? "checked" : ""}>` : `<span class="meta">${row.index + 1}</span>`}
+    return `<label class="buy${row.checkable ? " is-check" : ""}${row.done ? " is-done" : ""}${row.next ? " is-next" : ""}">
+      <span class="buy-n">${row.index + 1}</span>
+      ${row.checkable ? `<input type="checkbox" data-i="${row.index}" ${row.done ? "checked" : ""}>` : ""}
       <span>
         <strong>${esc(row.title)}</strong>
         <span class="meta">${row.detailHtml}${row.unlocked ? "" : ` · ${lockNote(requirementCodes(row.code))}`}</span>
@@ -913,6 +980,40 @@
     return nodes;
   }, {});
   const MAP_BIG_NODES = new Set(["DU1", "EU2", "FU1", "IU1"]);
+
+  function miniMapHtml(code) {
+    const node = MAP_NODES[code];
+    const letter = String(code || "").charAt(0).toUpperCase();
+    const points = MAP_BLOCKS[letter];
+    const label = `Show ${code} on the map`;
+    if (!node && !points) return "";
+    if (!node) {
+      return `<button type="button" class="mini-map mini-map-block" data-map="${esc(code)}" aria-label="${esc(label)}" title="Open the map">
+        <img src="LoopModMap.png" alt="">
+        <svg viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true">
+          <polygon points="${points.map((p) => p.join(",")).join(" ")}"></polygon>
+        </svg>
+      </button>`;
+    }
+    const viewW = 168;
+    const viewH = 126;
+    const scale = viewW / 240;
+    const imgW = MAP_SIZE.w * scale;
+    const imgH = MAP_SIZE.h * scale;
+    let left = viewW / 2 - node.x * scale;
+    let top = viewH / 2 - node.y * scale;
+    left = Math.min(0, Math.max(viewW - imgW, left));
+    top = Math.min(0, Math.max(viewH - imgH, top));
+    const pinX = (node.x * scale + left) / viewW * 100;
+    const pinY = (node.y * scale + top) / viewH * 100;
+    const pin = MAP_BIG_NODES.has(code) ? 26 : 20;
+    return `<button type="button" class="mini-map" data-map="${esc(code)}" aria-label="${esc(label)}" title="Open the map">
+      <span class="mini-map-sheet" style="width:${(imgW / viewW * 100).toFixed(2)}%;height:${(imgH / viewH * 100).toFixed(2)}%;left:${(left / viewW * 100).toFixed(2)}%;top:${(top / viewH * 100).toFixed(2)}%">
+        <img src="LoopModMap.png" alt="">
+      </span>
+      <span class="mini-map-pin" style="left:${pinX.toFixed(2)}%;top:${pinY.toFixed(2)}%;width:${pin}%"></span>
+    </button>`;
+  }
 
   function openMap(code) {
     state.tab = "map";
