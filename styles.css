@@ -413,8 +413,6 @@ body[data-density="compact"] .mod-row { padding: 3px 10px; gap: 8px; }
 body[data-density="compact"] .list,
 body[data-density="compact"] .level-list { gap: 1px; }
 .buy strong, .mod-row strong { font-weight: 600; line-height: 1.3; }
-.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-.tag { font-size: 11px; color: var(--tag-fg); background: var(--tag-bg); border-radius: 0; padding: 1px 6px; }
 .cost { text-align: right; font-variant-numeric: tabular-nums; }
 .cost b { display: block; }
 .mp { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -466,7 +464,7 @@ body[data-density="compact"] .level-list { gap: 1px; }
 .meter > span { display: block; height: 100%; background: var(--amber); }
 .mod-row.is-maxed { background: var(--maxed-bg); border-color: var(--maxed-line); }
 .mod-row.is-maxed .meter > span { background: var(--green); }
-.mod-row input[type="number"] { width: 96px; font-weight: 700; color: var(--ink); }
+.mod-row input[type="text"] { width: 96px; font-weight: 700; color: var(--ink); }
 
 /* Map */
 .map-layout {
@@ -585,17 +583,15 @@ h3 { margin: 18px 0 8px; font-size: 16px; }
   border-radius: 0;
 }
 .settings label.field span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
-.settings label.field input[type="number"],
 .settings label.field input[type="text"],
-.settings .ship input[type="number"] {
+.settings .ship input[type="text"] {
   flex: none;
   padding: 4px 6px;
   border-radius: 0;
   text-align: right;
 }
-.settings label.field input[type="number"] { width: 68px; }
 .settings label.field input[type="text"] { width: 72px; }
-.settings .ship input[type="number"] { width: 100%; }
+.settings .ship input[type="text"] { width: 100%; }
 .settings .doubler-val { display: flex; align-items: center; gap: 4px; flex: none; }
 .settings label.field.doubler input[type="text"] { width: 64px; }
 .settings .doubler-max { color: var(--level); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }

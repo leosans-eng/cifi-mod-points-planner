@@ -3,14 +3,6 @@
   const DATA = window.MTC_DATA;
   const PRIORITY = { A02: true, A03: true, G22: true };
   const CR_WEIGHTS = [2.75, 0.45, 0.25, 0.2, 0.15, 0.1, 0.05, 0.01, 1, 2.375, 4.75, 3.25, 2.1, 2.5, 10];
-  const BONUS_LABELS = [
-    "Cells", "MK1", "MK2", "MK3", "MK4", "MK5", "MK6", "MK7", "MK8",
-    "MP", "Shards", "Research", "AP", "Materials",
-    "LP", "Cradle RP", "Auxesia RP", "Zagreus RP", "Hephaestus RP", "Demeter RP", "Koios RP", "Zeus RP",
-    "Tickspeed", "Tick loop", "LR req",
-    "MK1 CR", "MK2 CR", "MK3 CR", "MK4 CR", "MK5 CR", "MK6 CR", "MK7 CR", "MK8 CR",
-    "Cradle CR", "Auxesia CR", "Zagreus CR", "Hephaestus CR", "Demeter CR", "Koios CR", "Zeus CR",
-  ];
   const OUTER_NAMES = [
     "Accumulative Level Growth Module Delta",
     "Cradle Rank Point Transmission",
@@ -138,7 +130,7 @@
   }
 
   function parseMp(text, asLog) {
-    const clean = String(text).trim().toLowerCase().replace(/,/g, "").replace(/\s+/g, "");
+    const clean = String(text).trim().toLowerCase().replace(/,/g, ".").replace(/\s+/g, "");
     if (!clean) return null;
     if (asLog) {
       const log = Number(clean);
@@ -161,7 +153,7 @@
 
   function unformat(input) {
     if (typeof input === "number") return input;
-    const text = String(input).trim().toLowerCase().replace(/,/g, "");
+    const text = String(input).trim().toLowerCase().replace(/,/g, ".");
     if (!text) return NaN;
     const sci = text.match(/^([+-]?\d+(?:\.\d+)?)(?:e([+-]?\d+))?([a-z]*)$/);
     if (!sci) return Number(text);
@@ -659,20 +651,6 @@
     dirty.forEach((index) => recompute(MODEL.mods[index], ctx));
   }
 
-  function notableBonuses(mod) {
-    const tags = [];
-    for (let i = 0; i < mod.bonus.length; i++) {
-      const value = mod.bonus[i];
-      if (!Number.isFinite(value)) continue;
-      if (Math.abs(value) < 0.001 || Math.abs(value - 1) < 0.001) continue;
-      const abs = Math.abs(value);
-      const shown = abs >= 1000 ? value.toExponential(2) : abs >= 100 ? String(Math.round(value)) : value.toPrecision(3);
-      tags.push(BONUS_LABELS[i] + " " + shown);
-      if (tags.length === 4) break;
-    }
-    return tags;
-  }
-
   function applyLevels(levelMap) {
     for (const mod of MODEL.mods) {
       const value = levelMap[mod.code];
@@ -707,7 +685,6 @@
       const nextLog = subLog(logMp, best.cost);
       if (nextLog == null) break;
       const from = best.mod.level;
-      const tags = notableBonuses(best.mod);
       const unlocked = isUnlocked(best.mod);
       logMp = nextLog;
       best.mod.level += 1;
@@ -730,7 +707,6 @@
           costLog: best.cost,
           endLogMp: logMp,
           unlocked,
-          tags,
         });
       }
     }
@@ -765,7 +741,6 @@
           count: 0,
           costLog: -Infinity,
           unlocked: group.unlocked,
-          tags: group.tags,
         };
         summaryIndex.set(group.code, row);
         summary.push(row);
@@ -834,7 +809,7 @@
 
   function parseLevelCell(text) {
     if (text == null) return null;
-    const cleaned = String(text).trim().replace(/,/g, "");
+    const cleaned = String(text).trim().replace(/,/g, ".");
     if (!/^\d+(?:\.0+)?$/.test(cleaned)) return null;
     return Math.floor(Number(cleaned));
   }
@@ -915,7 +890,6 @@
   window.MTC = {
     DATA,
     MODEL,
-    BONUS_LABELS,
     defaultProgress,
     parseMp,
     formatLog,

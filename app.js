@@ -451,7 +451,9 @@
         </aside>
         <section class="panel main" id="results"></section>
       </div>`;
-    document.getElementById("mp").addEventListener("input", (event) => {
+    const mpInput = document.getElementById("mp");
+    dotsForCommas(mpInput);
+    mpInput.addEventListener("input", (event) => {
       state.mp = event.target.value;
       saveState();
       updateReadout();
@@ -585,7 +587,6 @@
         detailHtml: `${levelRange(row.from, row.to)} · ${row.count} levels · ${codeButton(row.code)}`,
         cost: row.costLog,
         extraHtml: "",
-        tags: row.tags,
         unlocked: row.unlocked,
         done: false,
         next: false,
@@ -599,7 +600,6 @@
         detailHtml: `${levelRange(row.from, row.to)}${row.count > 1 ? ` · ${row.count} in a row` : ""} · ${codeButton(row.code)}`,
         cost: row.costLog,
         extraHtml: `left ${mpAmount(row.endLogMp)}`,
-        tags: row.tags,
         unlocked: row.unlocked,
         done: !!state.checked[index],
         next: index === nextIndex,
@@ -635,7 +635,6 @@
       <span>
         <strong>${esc(row.title)}</strong>
         <span class="meta">${row.detailHtml}${row.unlocked ? "" : ` · ${lockNote(requirementCodes(row.code))}`}</span>
-        ${row.tags && row.tags.length ? `<span class="tags">${row.tags.map((tag) => `<span class="tag">${esc(tag)}</span>`).join("")}</span>` : ""}
       </span>
       <span class="cost"><b>${mpAmount(row.cost)}</b><span class="meta">${row.extraHtml}</span></span>
     </label>`;
@@ -778,14 +777,15 @@
           <span class="meta" data-meta>${levelMeta(mod, owned)}</span>
           ${isCapped(mod) ? `<span class="meter" aria-hidden="true"><span data-fill style="width:${levelFill(mod, owned)}%"></span></span>` : ""}
         </span>
-        <input type="number" min="0" max="${mod.max}" step="1" data-level="${esc(mod.code)}" value="${owned}">
+        <input type="text" inputmode="numeric" data-level="${esc(mod.code)}" value="${owned}" aria-label="${esc(mod.code)} level">
       </div>`;
     }).join("");
     list.querySelectorAll("[data-level]").forEach((input) => {
+      dotsForCommas(input);
       input.addEventListener("change", () => {
         const code = input.dataset.level;
         const mod = MTC.MODEL.byCode[code];
-        let value = Math.floor(Number(input.value));
+        let value = Math.floor(Number(String(input.value).replace(/,/g, ".")));
         if (!Number.isFinite(value) || value < 0) value = 0;
         if (value > mod.max) value = mod.max;
         input.value = String(value);
@@ -1219,8 +1219,8 @@
     ` + ships.map(([key, label]) => `
       <div class="ship ship-${key}">
         <span>${esc(label)}</span>
-        <input id="r-${key}" type="number" step="any" value="${esc(p.rank[key])}" aria-label="${esc(label)} rank">
-        <input id="c-${key}" type="number" step="any" value="${esc(p.crew[key])}" aria-label="${esc(label)} crew">
+        <input id="r-${key}" type="text" inputmode="decimal" value="${esc(p.rank[key])}" aria-label="${esc(label)} rank">
+        <input id="c-${key}" type="text" inputmode="decimal" value="${esc(p.crew[key])}" aria-label="${esc(label)} crew">
       </div>`).join("");
     document.getElementById("ci").addEventListener("input", (event) => {
       p.ci = Number(event.target.value);
@@ -1234,6 +1234,7 @@
     bindNumbers("r-", (key, value) => { p.rank[key] = value; });
     bindNumbers("c-", (key, value) => { p.crew[key] = value; });
     document.getElementById("reset-progress").addEventListener("click", () => {
+      if (!confirm("Reset weights, run stats, manual generators, and ship ranks back to the defaults?")) return;
       const keep = { affordOnly: p.affordOnly, unlockedOnly: p.unlockedOnly };
       state.progress = Object.assign(MTC.defaultProgress(), keep);
       state.plan = null;
@@ -1243,7 +1244,7 @@
   }
 
   function field(label, id, value) {
-    return `<label class="field" title="${esc(label)}"><span>${esc(label)}</span><input id="${id}" type="number" step="any" value="${esc(value)}"></label>`;
+    return `<label class="field" title="${esc(label)}"><span>${esc(label)}</span><input id="${id}" type="text" inputmode="decimal" value="${esc(value)}"></label>`;
   }
 
   function statField(label, id, value) {
@@ -1254,8 +1255,19 @@
     return `<label class="field doubler" title="LP doubler bar"><span>LP doubler bar</span><span class="doubler-val"><input id="s-doubler" type="text" inputmode="decimal" value="${esc(MTC.formatCount(value))}"><span class="doubler-max">/10</span></span></label>`;
   }
 
+  function dotsForCommas(input) {
+    input.addEventListener("input", () => {
+      if (!input.value.includes(",")) return;
+      const start = input.selectionStart;
+      const end = input.selectionEnd;
+      input.value = input.value.replace(/,/g, ".");
+      if (start != null && end != null) input.setSelectionRange(start, end);
+    });
+  }
+
   function bindCounts(prefix, assign) {
     document.querySelectorAll(`[id^="${prefix}"]`).forEach((input) => {
+      dotsForCommas(input);
       input.addEventListener("change", () => {
         const key = input.id.slice(prefix.length);
         const raw = key === "doubler" ? String(input.value).split("/")[0] : input.value;
@@ -1275,10 +1287,13 @@
 
   function bindNumbers(prefix, assign) {
     document.querySelectorAll(`[id^="${prefix}"]`).forEach((input) => {
+      dotsForCommas(input);
       input.addEventListener("change", () => {
         const key = input.id.slice(prefix.length);
-        const value = Number(input.value);
-        assign(key, Number.isFinite(value) ? value : 0);
+        const value = Number(String(input.value).replace(/,/g, "."));
+        const next = Number.isFinite(value) ? value : 0;
+        assign(key, next);
+        input.value = String(next);
         state.plan = null;
         saveState();
       });
