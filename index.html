@@ -5,15 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>CIFI Mod Points Planner</title>
 <link rel="icon" href="ModPoints.png" type="image/png">
-<link rel="stylesheet" href="styles.css">
 <script>
-try {
-  var savedTheme = JSON.parse(localStorage.getItem("cifi-mtc-planner-v1") || "null");
-  var themeName = savedTheme && savedTheme.theme;
-  if (themeName === "green" || themeName === "charcoal" || themeName === "light" || themeName === "red") {
-    document.documentElement.setAttribute("data-theme", themeName);
+(function () {
+  if (location.search.indexOf("fresh=") !== -1) {
+    history.replaceState(null, "", location.pathname + location.hash);
   }
-} catch (err) {}
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      regs.forEach(function (reg) { reg.unregister(); });
+    });
+  }
+  if (window.caches && caches.keys) {
+    caches.keys().then(function (keys) {
+      keys.forEach(function (key) { caches.delete(key); });
+    });
+  }
+  var version = Date.now();
+  var link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = "styles.css?v=" + version;
+  document.head.appendChild(link);
+  try {
+    var savedTheme = JSON.parse(localStorage.getItem("cifi-mtc-planner-v1") || "null");
+    var themeName = savedTheme && savedTheme.theme;
+    if (themeName === "green" || themeName === "charcoal" || themeName === "light" || themeName === "red") {
+      document.documentElement.setAttribute("data-theme", themeName);
+    }
+  } catch (err) {}
+  window.__assetVersion = version;
+})();
 </script>
 </head>
 <body>
@@ -76,10 +96,12 @@ try {
 </header>
 <main id="app"></main>
 <script>
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+["data.js", "engine.js", "app.js"].forEach(function (file) {
+  var script = document.createElement("script");
+  script.src = file + "?v=" + window.__assetVersion;
+  script.async = false;
+  document.body.appendChild(script);
+});
 </script>
-<script src="data.js"></script>
-<script src="engine.js"></script>
-<script src="app.js"></script>
 </body>
 </html>
