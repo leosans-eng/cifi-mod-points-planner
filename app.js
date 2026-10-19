@@ -5,7 +5,11 @@
 
   const state = loadState();
   let revealNext = false;
+  applyTheme();
+  applyCostStyle();
+  applyDensity();
   selectEditableOnClick();
+  bindConfig();
 
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => goTo(tab.dataset.tab));
@@ -68,6 +72,9 @@
       runs: [],
       levelBlock: "",
       hideMaxed: false,
+      theme: "red",
+      costStyle: "suffix",
+      compact: false,
     };
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
@@ -109,12 +116,89 @@
       runs: state.runs,
       levelBlock: state.levelBlock,
       hideMaxed: state.hideMaxed,
+      theme: state.theme,
+      costStyle: state.costStyle,
+      compact: state.compact,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
   }
 
   function paintTabs() {
     tabs.forEach((tab) => tab.classList.toggle("is-on", tab.dataset.tab === state.tab));
+  }
+
+  function applyTheme() {
+    const theme = state.theme === "green" || state.theme === "light" || state.theme === "charcoal" ? state.theme : "red";
+    state.theme = theme;
+    document.documentElement.dataset.theme = theme;
+    document.querySelectorAll("[data-theme-pick]").forEach((button) => {
+      const on = button.dataset.themePick === theme;
+      button.classList.toggle("is-on", on);
+      button.setAttribute("aria-checked", on ? "true" : "false");
+    });
+  }
+
+  function applyCostStyle() {
+    const style = state.costStyle === "sci" ? "sci" : "suffix";
+    state.costStyle = style;
+    document.querySelectorAll("[data-cost-pick]").forEach((button) => {
+      const on = button.dataset.costPick === style;
+      button.classList.toggle("is-on", on);
+      button.setAttribute("aria-checked", on ? "true" : "false");
+    });
+  }
+
+  function applyDensity() {
+    state.compact = !!state.compact;
+    document.body.dataset.density = state.compact ? "compact" : "";
+    const box = document.getElementById("compact-lists");
+    if (box) box.checked = state.compact;
+  }
+
+  function setConfigOpen(open) {
+    const menu = document.getElementById("config-menu");
+    const button = document.getElementById("config-btn");
+    if (!menu || !button) return;
+    menu.hidden = !open;
+    button.classList.toggle("is-on", open);
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function bindConfig() {
+    const button = document.getElementById("config-btn");
+    const menu = document.getElementById("config-menu");
+    if (!button || !menu) return;
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      setConfigOpen(menu.hidden);
+    });
+    menu.addEventListener("click", (event) => {
+      const pick = event.target.closest("[data-theme-pick]");
+      if (pick) {
+        state.theme = pick.dataset.themePick;
+        applyTheme();
+        saveState();
+        return;
+      }
+      const cost = event.target.closest("[data-cost-pick]");
+      if (!cost) return;
+      state.costStyle = cost.dataset.costPick;
+      applyCostStyle();
+      saveState();
+      render();
+    });
+    menu.addEventListener("change", (event) => {
+      if (event.target.id !== "compact-lists") return;
+      state.compact = event.target.checked;
+      applyDensity();
+      saveState();
+    });
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".config")) setConfigOpen(false);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setConfigOpen(false);
+    });
   }
 
   function render() {
@@ -138,7 +222,7 @@
       <div class="home">
         <section class="home-intro">
           <p class="kicker">Fan-made tool · Pre-Ouro only</p>
-          <h1>A more efficient Loop Reset</h1>
+          <h1>Mod Points Planner - A more efficient Loop Reset</h1>
           <span>Based on the <a href="${esc(MTC.DATA.source)}" target="_blank" rel="noopener">original Mod Tree Cultivator</a> sheet. It scores loop mods the same way the sheet's [Buy Now!] checkbox does, but turns the MP from one loop reset into a full buy order at once.</span>
           <div class="home-actions">
             <button type="button" class="btn" data-go="plan">Build a buy order</button>
@@ -172,7 +256,7 @@
               <li>"Export to clipboard" copies Code and Level. Paste it into cell C30 of the sheet to sync back. (WIP but I don't know if it'll work in any way yet because the sheet doesn't accept multiple cells being altered at once)</li>
               <li>Loop mod map by TSoD, from the original sheet.</li>
               <li>This is a fan-made tool and not affiliated with CIFI or its developers. Made by <a href="https://github.com/leosans-eng" target="_blank" rel="noopener">leosans-eng</a>.</li>
-              <li>You can report bugs or suggest features <a href="https://github.com/leosans-eng/cifi-mod-points-planner/issues" target="_blank" rel="noopener">here</a>.</li>
+              <li>You can report bugs or suggest features <a href="https://github.com/leosans-eng/cifi-mod-points-planner/issues" target="_blank" rel="noopener">here</a> or send it to me on Discord (LeoSans).</li>
               <li>The credits for all good stuff go to the original sheet's authors and contributors.</li>
             </ul>
           </section>
@@ -486,6 +570,7 @@
     });
     document.getElementById("copy-list").addEventListener("click", copyList);
     document.getElementById("clear-checks").addEventListener("click", () => {
+      if (!confirm("Clear every check and put levels back to how they were when you built this order?")) return;
       state.checked = plan.groups.map(() => false);
       state.levels = Object.assign({}, state.levelsAtPlan || {});
       saveState();
@@ -581,12 +666,12 @@
     const lines = ["CIFI mod buy order"];
     if (state.orderMode === "totals") {
       plan.summary.forEach((row, index) => {
-        lines.push(`${index + 1}. ${row.name} ${row.from} -> ${row.to} (${row.count}) for ${MTC.formatLog(row.costLog)} MP`);
+        lines.push(`${index + 1}. ${row.name} ${row.from} -> ${row.to} (${row.count}) for ${formatCost(row.costLog)} MP`);
       });
     } else {
       plan.groups.forEach((row, index) => {
         const mark = state.checked[index] ? "[x]" : "[ ]";
-        lines.push(`${mark} ${index + 1}. ${row.name} ${row.from} -> ${row.to} for ${MTC.formatLog(row.costLog)} MP`);
+        lines.push(`${mark} ${index + 1}. ${row.name} ${row.from} -> ${row.to} for ${formatCost(row.costLog)} MP`);
       });
     }
     navigator.clipboard.writeText(lines.join("\n")).then(() => {
@@ -1215,8 +1300,25 @@
     return `<span class="lock">needs ${codes.map(codeButton).join(" and ")}</span>`;
   }
 
+  function formatCost(log) {
+    if (state.costStyle !== "sci") return MTC.formatLog(log);
+    if (log === -Infinity || !Number.isFinite(log)) return "0";
+    if (log < 0) {
+      const value = Math.pow(10, log);
+      if (value >= 0.01) return value.toFixed(2);
+      return value.toExponential(2).replace("e+", "e");
+    }
+    let exp = Math.floor(log);
+    let mantissa = Math.pow(10, log - exp);
+    if (mantissa >= 9.995) {
+      mantissa = 1;
+      exp += 1;
+    }
+    return mantissa.toFixed(2) + "e" + exp;
+  }
+
   function mpAmount(log) {
-    return `<span class="mp"><img src="ModPoints.png" alt="MP" title="Mod points">${esc(MTC.formatLog(log))}</span>`;
+    return `<span class="mp"><img src="ModPoints.png" alt="MP" title="Mod points">${esc(formatCost(log))}</span>`;
   }
 
   function codeButton(code) {
