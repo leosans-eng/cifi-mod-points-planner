@@ -33,6 +33,7 @@
 
   function isEditableText(el) {
     if (!el || !el.matches) return false;
+    if (el.id === "paste") return false;
     if (el.matches("textarea")) return true;
     if (!el.matches("input")) return false;
     const type = (el.getAttribute("type") || "text").toLowerCase();
@@ -66,6 +67,8 @@
       checked: [],
       levelsAtPlan: null,
       orderMode: "order",
+      orderQuery: "",
+      orderBlock: "",
       levelQuery: "",
       ownedOnly: false,
       mapQuery: "",
@@ -112,6 +115,8 @@
       checked: state.checked,
       levelsAtPlan: state.levelsAtPlan,
       orderMode: state.orderMode,
+      orderQuery: state.orderQuery,
+      orderBlock: state.orderBlock,
       levelQuery: state.levelQuery,
       ownedOnly: state.ownedOnly,
       mapQuery: state.mapQuery,
@@ -599,11 +604,12 @@
         </div>
       </article>
       <div class="toolbar">
-        <button class="btn ghost" type="button" id="mode-order">Buy order</button>
-        <button class="btn ghost" type="button" id="mode-totals">Totals per mod</button>
+        <button class="btn ghost${state.orderMode === "totals" ? "" : " is-on"}" type="button" id="mode-order" aria-pressed="${state.orderMode === "totals" ? "false" : "true"}">Buy order</button>
+        <button class="btn ghost${state.orderMode === "totals" ? " is-on" : ""}" type="button" id="mode-totals" aria-pressed="${state.orderMode === "totals" ? "true" : "false"}">Totals per mod</button>
         <button class="btn ghost" type="button" id="copy-list">Copy list</button>
         <button class="btn ghost" type="button" id="clear-checks">Clear checks</button>
       </div>
+      ${buyListHead()}
       <div class="list" id="buy-list"></div>
       ${nextGoalHtml(plan.nextGoal)}
       <p class="note small">Checking a row marks that step and everything above it as bought, and saves those levels in this browser. Clear checks puts levels back to how they were when you built the order.</p>`;
@@ -620,6 +626,20 @@
       saveState();
       paintResults();
     });
+    const buySearch = document.getElementById("buy-search");
+    buySearch.addEventListener("input", () => {
+      state.orderQuery = buySearch.value;
+      saveState();
+      paintBuyList();
+    });
+    document.querySelectorAll("[data-buy-block]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.orderBlock = button.dataset.buyBlock;
+        saveState();
+        document.querySelectorAll("[data-buy-block]").forEach((other) => other.classList.toggle("is-on", other === button));
+        paintBuyList();
+      });
+    });
     document.getElementById("copy-list").addEventListener("click", copyList);
     document.getElementById("clear-checks").addEventListener("click", () => {
       if (!confirm("Clear every check and put levels back to how they were when you built this order?")) return;
@@ -628,9 +648,53 @@
       saveState();
       paintResults();
     });
+    paintBuyList();
+    paintCompletion();
+    paintSideMiniMap(next && miniMapEnabled() && state.miniMapPlace === "side" ? next.code : null);
+  }
+
+  function buyListHead() {
+    const letters = ["", "A", "B", "C", "D", "E", "F", "G", "H", "I"];
+    const block = state.orderBlock || "";
+    return `<div class="list-head">
+      <input id="buy-search" type="text" placeholder="Search name or code" value="${esc(state.orderQuery || "")}">
+      <div class="seg" role="group" aria-label="Block">
+        ${letters.map((letter) => `<button type="button" data-buy-block="${letter}" class="${block === letter ? "is-on" : ""}">${letter || "All"}</button>`).join("")}
+      </div>
+    </div>
+    <p class="note small" id="buy-count" hidden></p>`;
+  }
+
+  function buyRowMatches(row) {
+    const block = state.orderBlock || "";
+    if (block && String(row.code || "").charAt(0).toUpperCase() !== block) return false;
+    const query = String(state.orderQuery || "").trim().toLowerCase();
+    if (!query) return true;
+    const name = String(row.name || "").toLowerCase();
+    const shortName = String(row.shortName || "").toLowerCase();
+    const code = String(row.code || "").toLowerCase();
+    return name.includes(query) || shortName.includes(query) || code.includes(query);
+  }
+
+  function paintBuyList() {
     const list = document.getElementById("buy-list");
+    const plan = state.plan;
+    if (!list || !plan) return;
+    const nextIndex = state.checked.findIndex((flag) => !flag);
+    const source = state.orderMode === "totals" ? plan.summary : plan.groups;
+    const rows = source.map((row, index) => ({ row, index })).filter(({ row }) => buyRowMatches(row));
+    const count = document.getElementById("buy-count");
+    if (count) {
+      const filtered = !!(String(state.orderQuery || "").trim() || state.orderBlock);
+      count.hidden = !filtered;
+      count.textContent = filtered ? `Showing ${rows.length} of ${source.length} rows` : "";
+    }
+    if (!rows.length) {
+      list.innerHTML = `<p class="note small">No rows match this search.</p>`;
+      return;
+    }
     if (state.orderMode === "totals") {
-      list.innerHTML = plan.summary.map((row, index) => rowHtml({
+      list.innerHTML = rows.map(({ row, index }) => rowHtml({
         index,
         code: row.code,
         title: row.name,
@@ -642,32 +706,30 @@
         next: false,
         checkable: false,
       })).join("");
-    } else {
-      list.innerHTML = plan.groups.map((row, index) => rowHtml({
-        index,
-        code: row.code,
-        title: row.name,
-        detailHtml: `${levelRange(row.from, row.to)}${row.count > 1 ? ` · ${row.count} in a row` : ""} · ${codeButton(row.code)}`,
-        cost: row.costLog,
-        extraHtml: `left ${mpAmount(row.endLogMp)}`,
-        unlocked: row.unlocked,
-        done: !!state.checked[index],
-        next: index === nextIndex,
-        checkable: true,
-      })).join("");
-      list.querySelectorAll("input[data-i]").forEach((input) => {
-        input.addEventListener("change", () => {
-          const index = Number(input.dataset.i);
-          if (input.checked) setBoughtThrough(index);
-          else setBoughtThrough(index, false);
-        });
-      });
-      const current = list.querySelector(".is-next");
-      if (current && revealNext) current.scrollIntoView({ block: "nearest" });
-      revealNext = false;
+      return;
     }
-    paintCompletion();
-    paintSideMiniMap(next && miniMapEnabled() && state.miniMapPlace === "side" ? next.code : null);
+    list.innerHTML = rows.map(({ row, index }) => rowHtml({
+      index,
+      code: row.code,
+      title: row.name,
+      detailHtml: `${levelRange(row.from, row.to)}${row.count > 1 ? ` · ${row.count} in a row` : ""} · ${codeButton(row.code)}`,
+      cost: row.costLog,
+      extraHtml: `left ${mpAmount(row.endLogMp)}`,
+      unlocked: row.unlocked,
+      done: !!state.checked[index],
+      next: index === nextIndex,
+      checkable: true,
+    })).join("");
+    list.querySelectorAll("input[data-i]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const index = Number(input.dataset.i);
+        if (input.checked) setBoughtThrough(index);
+        else setBoughtThrough(index, false);
+      });
+    });
+    const current = list.querySelector(".is-next");
+    if (current && revealNext) current.scrollIntoView({ block: "nearest" });
+    revealNext = false;
   }
 
   function paintSideMiniMap(code) {
@@ -1303,13 +1365,18 @@
           <p class="note">These eight counts are added together. That total raises the cell bonus of Accumulative Level Growth Alpha, Delta, and Rule of the Swarm.</p>
           <div class="dense" id="manuals"></div>
         </section>
-        <section class="panel">
-          <h3 class="first">Ship rank and crew</h3>
-          <div class="ship-grid" id="ships"></div>
-          <div class="toolbar">
-            <button class="btn ghost" id="reset-progress" type="button">Reset these inputs</button>
+        <div class="settings-side">
+          <section class="panel">
+            <h3 class="first">Ship rank and crew</h3>
+            <div class="ship-grid" id="ships"></div>
+          </section>
+          <div class="settings-resets">
+            <button class="btn ghost" type="button" data-reset="weights">Reset weights</button>
+            <button class="btn ghost" type="button" data-reset="stats">Reset run stats</button>
+            <button class="btn ghost" type="button" data-reset="manuals">Reset manual generators</button>
+            <button class="btn ghost" type="button" data-reset="ships">Reset ship rank and crew</button>
           </div>
-        </section>
+        </div>
       </div>`;
     document.getElementById("weights").innerHTML = weightFields.map(([key, label]) => field(label, `w-${key}`, p.weights[key])).join("");
     document.getElementById("scalars").innerHTML = scalars.map(([key, label]) => statField(label, `s-${key}`, p[key])).join("")
@@ -1320,8 +1387,8 @@
     ` + ships.map(([key, label]) => `
       <div class="ship ship-${key}">
         <span>${esc(label)}</span>
-        <input id="r-${key}" type="text" inputmode="decimal" value="${esc(p.rank[key])}" aria-label="${esc(label)} rank">
-        <input id="c-${key}" type="text" inputmode="decimal" value="${esc(p.crew[key])}" aria-label="${esc(label)} crew">
+        ${stepperInput(`r-${key}`, p.rank[key], `${label} rank`)}
+        ${stepperInput(`c-${key}`, p.crew[key], `${label} crew`)}
       </div>`).join("");
     document.getElementById("ci").addEventListener("input", (event) => {
       p.ci = Number(event.target.value);
@@ -1334,14 +1401,35 @@
     bindCounts("m-", (key, value) => { p.manual[key] = value; });
     bindNumbers("r-", (key, value) => { p.rank[key] = value; });
     bindNumbers("c-", (key, value) => { p.crew[key] = value; });
-    document.getElementById("reset-progress").addEventListener("click", () => {
-      if (!confirm("Reset weights, run stats, manual generators, and ship ranks back to the defaults?")) return;
-      const keep = { affordOnly: p.affordOnly, unlockedOnly: p.unlockedOnly };
-      state.progress = Object.assign(MTC.defaultProgress(), keep);
-      state.plan = null;
-      saveState();
-      renderSettings();
+    bindSteppers(document.getElementById("ships"));
+    document.querySelectorAll("[data-reset]").forEach((button) => {
+      button.addEventListener("click", () => resetProgressPart(button.dataset.reset, p));
     });
+  }
+
+  function resetProgressPart(kind, progress) {
+    const defaults = MTC.defaultProgress();
+    const prompts = {
+      weights: "Reset weights back to the sheet's recommended values?",
+      stats: "Reset run stats back to 0?",
+      manuals: "Reset manual generators back to 0?",
+      ships: "Reset ship ranks and crew back to 0?",
+    };
+    if (!prompts[kind] || !confirm(prompts[kind])) return;
+    if (kind === "weights") progress.weights = Object.assign({}, defaults.weights);
+    if (kind === "stats") {
+      ["level", "loops", "resets", "ops", "studies", "tickspeed", "equipment", "levels", "researches", "swTech", "doubler"].forEach((key) => {
+        progress[key] = defaults[key];
+      });
+    }
+    if (kind === "manuals") progress.manual = Object.assign({}, defaults.manual);
+    if (kind === "ships") {
+      progress.rank = Object.assign({}, defaults.rank);
+      progress.crew = Object.assign({}, defaults.crew);
+    }
+    state.plan = null;
+    saveState();
+    renderSettings();
   }
 
   function field(label, id, value) {
@@ -1350,6 +1438,30 @@
 
   function statField(label, id, value) {
     return `<label class="field" title="${esc(label)}"><span>${esc(label)}</span><input id="${id}" type="text" inputmode="decimal" value="${esc(MTC.formatCount(value))}"></label>`;
+  }
+
+  function stepperInput(id, value, label) {
+    return `<span class="stepper">
+      <input id="${id}" type="text" inputmode="decimal" value="${esc(value)}" aria-label="${esc(label)}">
+      <span class="stepper-btns">
+        <button type="button" data-step="1" aria-label="Increase ${esc(label)}">▲</button>
+        <button type="button" data-step="-1" aria-label="Decrease ${esc(label)}">▼</button>
+      </span>
+    </span>`;
+  }
+
+  function bindSteppers(root) {
+    if (!root) return;
+    root.querySelectorAll(".stepper-btns button").forEach((button) => {
+      button.addEventListener("click", () => {
+        const input = button.closest(".stepper").querySelector("input");
+        const current = Number(String(input.value).replace(/,/g, "."));
+        const base = Number.isFinite(current) ? current : 0;
+        const next = Math.max(0, base + Number(button.dataset.step));
+        input.value = String(next);
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+    });
   }
 
   function doublerField(value) {
