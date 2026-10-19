@@ -12,7 +12,7 @@ The scores, costs, unlock rules, weights, and mod list come from the public spre
 
 [https://docs.google.com/spreadsheets/d/163EXGY7OuOTyqHOdAXn20dMN4vASpqkaSu_iTgiBdU0](https://docs.google.com/spreadsheets/d/163EXGY7OuOTyqHOdAXn20dMN4vASpqkaSu_iTgiBdU0)
 
-That sheet is by **SomeGaiden** (SomeGaiden#3989) and **TSoD** (tsod76), along with the other people who contributed to it. Community listings of the same sheet, including the [CIFI wiki's Guides and Tools page](https://cifi.fandom.com/wiki/Guides_and_Tools), name those two as its authors.
+That sheet is by **TSoD** (tsod76) and **SomeGaiden** (SomeGaiden#3989), along with the other people who contributed to it. Community listings of the same sheet, including the [CIFI wiki's Guides and Tools page](https://cifi.fandom.com/wiki/Guides_and_Tools), name those two as its authors. In a credit made in CIFI Discord, the sheet is by **TSoD**, and is being maintained by them.
 
 - This planner follows sheet version 1.2.0.11. It does not cover Ouro mods.
 - The loop mod map, `LoopModMap.png`, is by TSoD and is taken from that sheet.
@@ -26,8 +26,6 @@ That sheet is by **SomeGaiden** (SomeGaiden#3989) and **TSoD** (tsod76), along w
 
 Bugs and suggestions: [https://github.com/leosans-eng/cifi-mod-points-planner/issues](https://github.com/leosans-eng/cifi-mod-points-planner/issues)
 
-This README is not a license, and it does not give this project the right to republish other people's work.
-
-- The spreadsheet, its formulas, and the data taken from it belong to SomeGaiden, TSoD, and the sheet's contributors. The sheet is public. No open license was found that allows this repository to relicense that work. `data.js`, the scoring in `engine.js`, and `LoopModMap.png` stay theirs. Ask them before publishing those files.
+- The spreadsheet, its formulas, and the data taken from it belong to TSoD, SomeGaiden, and the sheet's contributors. The sheet is public. No open license was found that allows this repository to relicense that work. `data.js`, the scoring in `engine.js`, and `LoopModMap.png` stay theirs.
 - `ModPoints.png` belongs to the game. It is not covered by any license in this repository.
 - The page around that data was written by LeoSans as a fan tool. No license is offered for reusing it. I will delete it if the creators of the sheet don't allow this page to be online.

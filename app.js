@@ -223,7 +223,7 @@
         <section class="home-intro">
           <p class="kicker">Fan-made tool · Pre-Ouro only</p>
           <h1>Mod Points Planner - A more efficient Loop Reset</h1>
-          <span>Based on the <a href="${esc(MTC.DATA.source)}" target="_blank" rel="noopener">original Mod Tree Cultivator</a> sheet. It scores loop mods the same way the sheet's [Buy Now!] checkbox does, but turns the MP from one loop reset into a full buy order at once.</span>
+          <span>Based on the <a href="${esc(MTC.DATA.source)}" target="_blank" rel="noopener">original Mod Tree Cultivator</a> sheet, which currently maintained by TSoD. It scores loop mods the same way the sheet's [Buy Now!] checkbox does, but turns the MP from one loop reset into a full buy order at once.<br><br>All the good stuff, like the calculations logic and the loop mod map, belongs to the sheet's authors and contributors. So any bugs might be my fault, not theirs.</span>
           <div class="home-actions">
             <button type="button" class="btn" data-go="plan">Build a buy order</button>
             <button type="button" class="btn ghost" data-go="levels">Enter owned levels</button>
