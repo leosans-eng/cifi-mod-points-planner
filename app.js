@@ -1104,31 +1104,30 @@
     });
   }
 
-  const MAP_SIZE = { w: 1212, h: 1106 };
+  const MAP_IMAGE = "UpdatedGameMap.png";
+  const MAP_SIZE = { w: 1840, h: 1614 };
   const MAP_BLOCKS = {
-    A: [[412, 682], [548, 682], [548, 808], [607, 808], [607, 1104], [412, 1104]],
-    B: [[548, 673], [893, 673], [893, 776], [607, 776], [607, 808], [548, 808]],
-    C: [[136, 134], [547, 134], [547, 682], [412, 682], [412, 792], [204, 792], [204, 673],
-      [364, 673], [364, 634], [412, 634], [412, 295], [136, 295]],
-    D: [[680, 272], [1051, 272], [1051, 673], [639, 673], [639, 460], [680, 460]],
-    E: [[2, 295], [412, 295], [412, 634], [364, 634], [364, 673], [2, 673]],
-    F: [[136, 2], [680, 2], [680, 460], [639, 460], [639, 673], [547, 673], [547, 134], [136, 134]],
-    G: [[2, 673], [204, 673], [204, 792], [412, 792], [412, 1104], [2, 1104]],
-    H: [[607, 776], [783, 776], [783, 977], [1003, 977], [1003, 1104], [607, 1104]],
-    I: [[1051, 272], [1210, 272], [1210, 1104], [1003, 1104], [1003, 977], [783, 977],
-      [783, 776], [893, 776], [893, 673], [1051, 673]],
+    A: [[[676,999],[736,999],[736,1094],[832,1094],[832,1154],[784,1154],[784,1250],[676,1250],[676,1202],[628,1202],[628,1142],[676,1142]], [[682,852],[731,852],[731,853],[732,853],[732,854],[733,854],[733,855],[734,855],[734,856],[735,856],[735,857],[736,857],[736,880],[843,880],[843,940],[734,940],[734,906],[676,906],[676,858],[677,858],[677,857],[678,857],[678,856],[679,856],[679,855],[680,855],[680,854],[681,854],[681,853],[682,853]]],
+    B: [[[878,846],[1274,846],[1274,906],[878,906]], [[1069,911],[1178,911],[1178,971],[1129,971],[1129,970],[1128,970],[1128,969],[1127,969],[1127,968],[1126,968],[1126,967],[1124,967],[1124,966],[1100,966],[1100,967],[1076,967],[1076,966],[1075,966],[1075,965],[1074,965],[1074,964],[1073,964],[1073,963],[1072,963],[1072,962],[1071,962],[1071,961],[1069,961]], [[878,911],[938,911],[938,971],[878,971]]],
+    C: [[[295,211],[688,211],[688,259],[736,259],[736,319],[689,319],[689,367],[295,367]], [[629,608],[785,608],[785,763],[784,763],[784,858],[736,858],[736,857],[735,857],[735,856],[734,856],[734,855],[733,855],[733,854],[732,854],[732,853],[731,853],[731,852],[682,852],[682,853],[681,853],[681,854],[680,854],[680,855],[679,855],[679,856],[678,856],[678,857],[677,857],[677,858],[628,858],[628,751],[629,751]], [[331,846],[487,846],[487,954],[338,954],[338,906],[331,906]]],
+    D: [[[1230,588],[1386,588],[1386,791],[992,791],[992,589],[1230,589]], [[1325,429],[1385,429],[1385,480],[1392,480],[1392,556],[1320,556],[1320,545],[1270,545],[1270,485],[1320,485],[1320,480],[1325,480]], [[1039,473],[1099,473],[1099,581],[1039,581]]],
+    E: [[[188,398],[248,398],[248,445],[344,445],[344,731],[379,731],[379,493],[380,493],[380,458],[379,458],[379,398],[439,398],[439,445],[535,445],[535,791],[188,791],[188,744],[187,744],[187,684],[188,684]], [[30,726],[102,726],[102,731],[152,731],[152,791],[102,791],[102,802],[30,802]]],
+    F: [[[878,187],[986,187],[986,235],[1034,235],[1034,295],[986,295],[986,330],[1034,330],[1034,390],[986,390],[986,425],[1034,425],[1034,485],[986,485],[986,521],[1034,521],[1034,581],[926,581],[926,533],[878,533],[878,473],[926,473],[926,438],[878,438],[878,378],[926,378],[926,342],[878,342],[878,282],[926,282],[926,247],[878,247]], [[926,28],[986,28],[986,77],[992,77],[992,84],[1043,84],[1043,144],[992,144],[992,153],[920,153],[920,144],[877,144],[877,84],[920,84],[920,77],[926,77]], [[926,731],[986,731],[986,791],[926,791]], [[926,636],[986,636],[986,696],[926,696]]],
+    G: [[[376,1043],[436,1043],[436,1198],[389,1198],[389,1246],[341,1246],[341,1294],[281,1294],[281,1091],[376,1091]], [[169,1206],[276,1206],[276,1361],[169,1361]], [[169,1043],[229,1043],[229,1091],[276,1091],[276,1151],[229,1151],[229,1198],[169,1198],[169,1151],[121,1151],[121,1091],[169,1091]], [[281,1301],[436,1301],[436,1361],[281,1361]], [[121,846],[276,846],[276,906],[121,906]], [[54,1254],[114,1254],[114,1314],[54,1314]]],
+    H: [[[974,1164],[1130,1164],[1130,1368],[974,1368]], [[1327,1212],[1387,1212],[1387,1272],[1386,1272],[1386,1368],[1290,1368],[1290,1369],[1230,1369],[1230,1213],[1327,1213]], [[974,961],[1071,961],[1071,962],[1072,962],[1072,963],[1073,963],[1073,964],[1074,964],[1074,965],[1075,965],[1075,966],[1076,966],[1076,967],[1100,967],[1100,966],[1124,966],[1124,967],[1126,967],[1126,968],[1127,968],[1127,969],[1128,969],[1128,970],[1129,970],[1129,971],[1130,971],[1130,1117],[974,1117]]],
+    I: [[[1347,911],[1701,911],[1701,971],[1652,971],[1652,1122],[1592,1122],[1592,1022],[1554,1022],[1554,1272],[1494,1272],[1494,971],[1456,971],[1456,1172],[1347,1172]], [[1396,846],[1505,846],[1505,847],[1701,847],[1701,907],[1494,907],[1494,906],[1406,906],[1406,907],[1346,907],[1346,847],[1396,847]], [[1544,426],[1795,426],[1795,486],[1544,486]], [[1592,689],[1652,689],[1652,731],[1658,731],[1658,744],[1709,744],[1709,804],[1658,804],[1658,807],[1586,807],[1586,731],[1592,731]]],
   };
 
   const MAP_NODES = [
-    "A01:478,697 A02:431,723 A03:526,723 A04:478,749 A05:478,788 A06:478,828 A07:517,828 A08:557,828 A11:439,867 A09:478,867 A10:517,867 A12:478,906",
-    "B01:573,696 B03:612,696 B04:652,696 B05:691,696 B06:730,696 B07:769,696 B08:809,696 B09:848,696 B02:573,749 B10:731,749 B11:770,749",
-    "C8cb:165,173 C7cb:204,173 C6cb:243,173 C5cb:282,173 C4cb:321,173 C3cb:361,173 C2cb:400,173 C1cb:439,173 C8b:165,213 C7b:204,213 C6b:243,213 C5b:282,213 C4b:322,213 C3b:361,212 C2b:400,212 C1b:439,212 C09:478,212 C8ob:165,252 C7ob:204,252 C6ob:243,252 C5ob:282,252 C4ob:322,252 C3ob:361,251 C2ob:400,251 C1ob:440,252 C8o:439,499 C8u:478,499 C8c:517,499 C7o:439,539 C7u:478,539 C7c:517,539 C6o:439,578 C6u:478,578 C6c:517,578 C5o:439,617 C5u:478,617 C5c:517,617 C4o:439,657 C4u:478,657 C4c:517,656 C3o:268,696 C2o:308,696 C1o:347,696 C3c:269,735 C2c:308,735 C1c:347,735",
-    "DU3:941,352 DGS:706,390 DU2:895,398 DU1:942,399 DGC:705,428 D1g:666,483 D2g:705,483 D3g:744,483 D4g:784,483 D5g:824,483 D6g:863,483 D7g:902,483 D8g:941,483 D1c:666,523 D2c:705,523 D3c:744,523 D4c:784,522 D5c:824,523 D6c:863,522 D7c:902,522 D8c:941,522 D1L:666,562 D2L:705,562 D3L:745,562 D4L:784,562 D5L:824,562 D6L:863,561 D7L:902,561 D8L:941,561 D1v:666,601 D2v:705,601 D3v:745,601 D4v:784,601 D5v:824,601 D6v:862,601 D7v:902,601 D8v:941,601",
-    "E31:151,328 E30:308,327 E29:151,365 E28:190,365 E27:230,365 E26:308,365 EA7:348,365 EB7:387,365 E25:151,405 E24:190,405 E23:229,405 E22:308,405 EA6:348,404 EB6:387,405 E21:151,444 E20:190,444 E19:229,444 E18:308,444 EA5:347,443 EB5:387,443 E17:151,483 E16:190,483 E15:229,483 E14:308,483 EA4:348,484 EB4:387,484 E13:151,522 E12:190,522 E11:229,522 E10:308,522 EA3:347,522 EB3:387,522 E09:150,562 E08:190,562 E07:229,562 E06:308,562 EA2:347,562 EB2:387,562 EU2:25,601 EU1:72,601 E05:151,601 E04:190,601 E03:229,601 E02:269,601 E01:308,601 EA1:347,601 EB1:387,601",
-    "FU3:613,22 FU2:566,70 FU1:612,70 FU4:659,68 F18:573,153 F17:612,153 F15:612,192 F16:651,192 F14:573,231 F13:612,231 F11:612,270 F12:652,270 F10:573,309 F09:612,309 F07:612,349 F08:651,349 F06:574,390 F05:613,390 F03:613,428 F04:652,428 F02:613,523 F01:613,601",
-    "G02:135,696 G01:173,696 G05:135,821 G23:306,821 G06:95,860 G04:135,860 G03:174,860 G14:227,860 G18:266,860 G21:306,860 G07:135,900 G15:227,900 G19:267,900 G22:306,900 G16:227,939 G20:267,939 G11:135,955 G08:174,955 G17:227,978 GU1:40,995 G12:135,994 G09:174,994 G13:135,1034 G10:174,1034 G24:227,1034 G25:267,1034 G26:306,1034",
-    "H02:652,791 H01:691,791 H03:730,791 H04:652,830 H09:691,830 H05:731,830 H06:652,869 H08:691,869 H07:730,869 H11:652,957 H10:691,957 H12:730,957 H14:652,997 H13:691,996 H15:730,996 H23:863,997 H25:902,997 H27:941,997 H17:652,1036 H16:691,1036 H18:730,1036 H22:862,1036 H30:902,1036 H29:941,1036 H20:652,1075 H19:691,1075 H21:730,1075 H24:863,1076 H26:901,1075 H28:941,1075",
-    "IU2:1144,566 IU1:1144,613 IU3:1190,612 I01:941,697 I02:981,696 I03:1022,696 I04:1062,696 I05:1103,696 I06:1144,696 I07:1184,696 I08:942,749 I13:982,749 I18:1023,749 I19:1063,749 I26:1103,749 I28:1144,749 I32:1184,749 I09:942,790 I14:982,791 I20:1063,792 I27:1103,791 I29:1144,792 I10:942,831 I15:982,831 I21:1063,832 I30:1144,832 I11:942,873 I16:982,873 I22:1063,873 I31:1144,873 I12:942,914 I17:982,914 I23:1063,914 I24:1063,955 I25:1063,996",
+    "A01:706,872 A02:764,906 A03:813,906 A04:706,1025 A05:706,1072 A06:706,1121 A07:754,1120 A08:802,1120 A11:658,1168 A09:706,1168 A10:754,1168 A12:706,1216 A13:754,1216",
+    "B01:908,872 B03:956,872 B04:1004,872 B05:1052,872 B06:1099,872 B07:1148,872 B08:1196,872 B09:1244,872 B02:908,937 B10:1099,937 B11:1148,937",
+    "C8cb:325,237 C7cb:372,237 C6cb:420,237 C5cb:468,237 C4cb:515,237 C3cb:563,237 C2cb:611,237 C1cb:658,237 C8b:325,285 C7b:372,285 C6b:420,285 C5b:468,285 C4b:516,285 C3b:563,285 C2b:611,285 C1b:658,285 C09:706,285 C8ob:325,333 C7ob:373,333 C6ob:420,333 C5ob:468,333 C4ob:516,333 C3ob:563,333 C2ob:611,333 C1ob:659,333 C8o:659,634 C8u:707,634 C8c:755,634 C7o:659,682 C7u:707,682 C7c:755,682 C6o:659,729 C6u:707,729 C6c:755,729 C5o:658,777 C5u:706,777 C5c:754,777 C4o:658,824 C4u:706,824 C4c:754,824 C3o:361,872 C2o:409,872 C1o:457,872 C3c:368,920 C2c:409,920 C1c:457,920",
+    "DU3:1355,455 DGS:1069,499 DU2:1300,511 DU1:1356,514 DGC:1069,547 D1g:1022,615 D2g:1069,615 D3g:1116,615 D4g:1165,615 D5g:1213,615 D6g:1260,614 D7g:1308,614 D8g:1356,614 D1c:1022,662 D2c:1069,662 D3c:1116,662 D4c:1165,662 D5c:1213,662 D6c:1260,661 D7c:1308,661 D8c:1356,661 D1L:1022,710 D2L:1069,710 D3L:1117,710 D4L:1165,710 D5L:1213,710 D6L:1260,709 D7L:1308,709 D8L:1356,709 D1v:1022,757 D2v:1069,757 D3v:1116,757 D4v:1165,757 D5v:1213,757 D6v:1260,757 D7v:1308,757 D8v:1356,757",
+    "E31:218,424 E30:409,424 E29:218,471 E28:266,471 E27:314,471 E26:410,471 EA7:458,471 EB7:505,471 E25:218,519 E24:266,519 E23:314,519 E22:409,519 EA6:457,519 EB6:505,519 E21:218,567 E20:266,567 E19:314,567 E18:409,567 EA5:457,566 EB5:505,566 E17:218,615 E16:266,615 E15:314,615 E14:409,615 EA4:457,614 EB4:505,614 E13:218,662 E12:266,662 E11:314,662 E10:409,662 EA3:457,662 EB3:505,662 E09:217,710 E08:266,710 E07:314,710 E06:409,710 EA2:457,710 EB2:505,710 EU2:66,760 EU1:122,757 E05:218,757 E04:266,757 E03:314,757 E02:361,757 E01:409,757 EA1:457,757 EB1:505,757",
+    "FU3:956,54 FU2:907,110 FU1:956,111 FU4:1013,110 F18:908,213 F17:956,213 F15:956,261 F16:1004,261 F14:908,308 F13:956,308 F11:956,356 F12:1004,356 F10:908,404 F09:956,404 F07:956,451 F08:1004,451 F06:908,499 F05:956,499 F03:956,547 F04:1004,547 F02:956,662 F01:956,757",
+    "G02:198,872 G01:246,872 G05:199,1069 G23:406,1069 G06:151,1117 G04:199,1117 G03:246,1117 G14:311,1117 G18:359,1117 G21:406,1117 G07:199,1164 G15:311,1165 G19:359,1164 G22:406,1164 G16:311,1212 G20:359,1212 G11:199,1232 G08:246,1232 G17:311,1260 GU1:84,1280 G12:199,1280 G09:246,1280 G13:199,1327 G10:246,1327 G24:311,1327 G25:359,1327 G26:406,1327 G27:151,872",
+    "H02:1004,987 H01:1052,987 H03:1100,987 H04:1004,1035 H09:1052,1035 H05:1100,1035 H06:1004,1083 H08:1052,1083 H07:1100,1083 H11:1004,1190 H10:1052,1190 H12:1100,1190 H14:1004,1238 H13:1052,1238 H15:1100,1238 H23:1260,1239 H25:1308,1239 H27:1357,1238 H17:1004,1286 H16:1052,1286 H18:1100,1286 H22:1260,1287 H30:1308,1286 H29:1356,1286 H20:1004,1334 H19:1052,1334 H21:1100,1334 H24:1260,1335 H26:1308,1334 H28:1356,1334",
+    "IU2:1622,715 IU1:1622,765 IU3:1679,770 I01:1376,873 I02:1426,872 I03:1475,872 I04:1524,873 I05:1573,873 I06:1622,873 I07:1671,873 I08:1377,937 I13:1426,937 I18:1475,937 I19:1524,937 I26:1573,937 I28:1622,937 I32:1671,937 I09:1377,988 I14:1426,988 I20:1524,988 I27:1573,988 I29:1622,988 I10:1377,1038 I15:1426,1038 I21:1524,1038 I30:1622,1038 I11:1377,1088 I16:1426,1088 I22:1524,1088 I31:1622,1088 I12:1377,1138 I17:1426,1138 I23:1524,1138 I24:1524,1188 I25:1524,1238 IU4:1622,452 IC4:1574,452 IC1:1670,452 IC2:1717,452 IC3:1765,452",
   ].join(" ").split(" ").reduce((nodes, entry) => {
     const [code, xy] = entry.split(":");
     const [x, y] = xy.split(",").map(Number);
@@ -1137,23 +1136,79 @@
   }, {});
   const MAP_BIG_NODES = new Set(["DU1", "EU2", "FU1", "IU1"]);
 
+  function blockPath(loops) {
+    return `<path class="map-block" fill-rule="evenodd" d="${loops.map((loop) => "M" + loop.map((p) => p.join(",")).join("L") + "Z").join("")}"></path>`;
+  }
+
+  function blockBounds(loops) {
+    const points = loops.flat();
+    const xs = points.map((p) => p[0]);
+    const ys = points.map((p) => p[1]);
+    return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+  }
+
+  function chamferRect(left, top, right, bottom, cut) {
+    return [
+      [left + cut, top], [right - cut, top], [right, top + cut], [right, bottom - cut],
+      [right - cut, bottom], [left + cut, bottom], [left, bottom - cut], [left, top + cut],
+    ].map((p) => p.map((n) => +n.toFixed(1)).join(",")).join(" ");
+  }
+
+  function shortLevel(level) {
+    if (level < 1000) return String(level);
+    const units = ["k", "M", "B"];
+    let value = level;
+    let unit = -1;
+    while (value >= 1000 && unit < units.length - 1) {
+      value /= 1000;
+      unit += 1;
+    }
+    return (value >= 100 ? value.toFixed(0) : value >= 10 ? value.toFixed(1) : value.toFixed(2)) + units[unit];
+  }
+
+  function mapNodeSvg(code) {
+    const node = MAP_NODES[code];
+    const mod = MTC.MODEL.byCode[code];
+    if (!node || !mod) return "";
+    const level = state.levels[code] || 0;
+    const big = MAP_BIG_NODES.has(code);
+    const maxed = isMaxed(mod, level);
+    const { x, y } = node;
+    const text = isCapped(mod) ? `${level}/${mod.max}` : big ? `LV. ${shortLevel(level)}` : shortLevel(level);
+    const half = big ? 25.5 : 16.5;
+    const badgeW = big ? 27 : 21;
+    const badgeTop = y + (big ? 21 : 11);
+    const fit = text.length > (big ? 7 : 5) ? ` textLength="${badgeW * 2 - 6}" lengthAdjust="spacingAndGlyphs"` : "";
+    const kind = maxed ? "is-maxed" : level > 0 ? "is-owned" : "is-new";
+    return `<g class="map-mod ${kind}${big ? " is-big" : ""}">
+      <polygon class="map-tile" points="${chamferRect(x - half, y - half, x + half, y + half, big ? 7 : 5)}"></polygon>
+      <polygon class="map-badge" points="${chamferRect(x - badgeW, badgeTop, x + badgeW, badgeTop + 15, 4)}"></polygon>
+      <text class="map-level" x="${x}" y="${badgeTop + 11}"${fit}>${esc(text)}</text>
+      ${maxed && !big ? `<text class="map-max" x="${x}" y="${y - 14}">MAX</text>` : ""}
+    </g>`;
+  }
+
+  function mapNodesSvg(codes) {
+    return codes.map(mapNodeSvg).join("");
+  }
+
   function miniMapHtml(code) {
     const node = MAP_NODES[code];
     const letter = String(code || "").charAt(0).toUpperCase();
-    const points = MAP_BLOCKS[letter];
+    const loops = MAP_BLOCKS[letter];
     const label = `Show ${code} on the map`;
-    if (!node && !points) return "";
+    if (!node && !loops) return "";
     if (!node) {
       return `<button type="button" class="mini-map mini-map-block" data-map="${esc(code)}" aria-label="${esc(label)}" title="Open the map">
-        <img src="LoopModMap.png" alt="">
+        <img src="${MAP_IMAGE}" alt="">
         <svg viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true">
-          <polygon points="${points.map((p) => p.join(",")).join(" ")}"></polygon>
+          ${blockPath(loops)}
         </svg>
       </button>`;
     }
     const viewW = 168;
     const viewH = 126;
-    const scale = viewW / 240;
+    const scale = viewW / 290;
     const imgW = MAP_SIZE.w * scale;
     const imgH = MAP_SIZE.h * scale;
     let left = viewW / 2 - node.x * scale;
@@ -1162,10 +1217,17 @@
     top = Math.min(0, Math.max(viewH - imgH, top));
     const pinX = (node.x * scale + left) / viewW * 100;
     const pinY = (node.y * scale + top) / viewH * 100;
-    const pin = MAP_BIG_NODES.has(code) ? 26 : 20;
+    const pin = MAP_BIG_NODES.has(code) ? 30 : 22;
+    const seenX = [-left / scale - 40, (viewW - left) / scale + 40];
+    const seenY = [-top / scale - 40, (viewH - top) / scale + 40];
+    const nearby = Object.keys(MAP_NODES).filter((other) => {
+      const at = MAP_NODES[other];
+      return at.x >= seenX[0] && at.x <= seenX[1] && at.y >= seenY[0] && at.y <= seenY[1];
+    });
     return `<button type="button" class="mini-map" data-map="${esc(code)}" aria-label="${esc(label)}" title="Open the map">
       <span class="mini-map-sheet" style="width:${(imgW / viewW * 100).toFixed(2)}%;height:${(imgH / viewH * 100).toFixed(2)}%;left:${(left / viewW * 100).toFixed(2)}%;top:${(top / viewH * 100).toFixed(2)}%">
-        <img src="LoopModMap.png" alt="">
+        <img src="${MAP_IMAGE}" alt="">
+        <svg class="map-mods" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true">${mapNodesSvg(nearby)}</svg>
       </span>
       <span class="mini-map-pin" style="left:${pinX.toFixed(2)}%;top:${pinY.toFixed(2)}%;width:${pin}%"></span>
     </button>`;
@@ -1212,15 +1274,16 @@
           </div>
           <hr>
           <div class="map-legend">
-            <span><i class="dot dot-max"></i>Maxed</span>
-            <span><i class="dot dot-part"></i>Partly bought</span>
+            <span><i class="key key-max"></i>Maxed</span>
+            <span><i class="key key-owned"></i>Bought</span>
+            <span><i class="key key-new"></i>Not bought</span>
           </div>
           <p class="note small">Drag to move, scroll to zoom, and click a node to select it.</p>
         </aside>
         <div class="map-scroll" id="map-scroll">
           <div class="map-stage" id="map-stage">
-            <img src="LoopModMap.png" alt="Loop mod map. Blocks A through I, with each node labeled by its code." draggable="false">
-            <svg class="map-progress" id="map-progress" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true"></svg>
+            <img src="${MAP_IMAGE}" alt="Loop mod tree from the game, blocks A through I, showing your level on each mod." draggable="false">
+            <svg class="map-mods" id="map-progress" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true"></svg>
             <div id="map-boxes"></div>
           </div>
         </div>
@@ -1255,15 +1318,7 @@
   function paintMapProgress() {
     const layer = document.getElementById("map-progress");
     if (!layer) return;
-    layer.innerHTML = Object.keys(MAP_NODES).map((code) => {
-      const mod = MTC.MODEL.byCode[code];
-      const level = state.levels[code] || 0;
-      if (!mod || level <= 0) return "";
-      const node = MAP_NODES[code];
-      const big = MAP_BIG_NODES.has(code);
-      const kind = isMaxed(mod, level) ? "max" : "part";
-      return `<circle class="dot-${kind}" cx="${node.x + (big ? 18 : 12)}" cy="${node.y - (big ? 16 : 10)}" r="${big ? 6 : 5}"></circle>`;
-    }).join("");
+    layer.innerHTML = mapNodesSvg(Object.keys(MAP_NODES));
   }
 
   function mapNodeAt(clientX, clientY) {
@@ -1276,7 +1331,7 @@
     let bestDist = Infinity;
     Object.keys(MAP_NODES).forEach((code) => {
       const node = MAP_NODES[code];
-      const reach = MAP_BIG_NODES.has(code) ? 24 : 17;
+      const reach = MAP_BIG_NODES.has(code) ? 30 : 22;
       const dist = Math.hypot(node.x - x, node.y - y);
       if (dist <= reach && dist < bestDist) {
         best = code;
@@ -1306,8 +1361,8 @@
   function applyMapZoom() {
     const stage = document.getElementById("map-stage");
     if (!stage) return;
-    stage.style.width = Math.round(1212 * state.mapZoom) + "px";
-    stage.style.height = Math.round(1106 * state.mapZoom) + "px";
+    stage.style.width = Math.round(MAP_SIZE.w * state.mapZoom) + "px";
+    stage.style.height = Math.round(MAP_SIZE.h * state.mapZoom) + "px";
   }
 
   function zoomMapBy(delta) {
@@ -1391,11 +1446,11 @@
     const text = state.mapQuery.trim();
     const mod = findModByCode(text);
     const letter = ((mod && mod.code) || text).charAt(0).toUpperCase();
-    const points = MAP_BLOCKS[letter];
+    const loops = MAP_BLOCKS[letter];
     document.querySelectorAll("[data-block]").forEach((button) => {
-      button.classList.toggle("is-on", !!points && button.dataset.block === letter);
+      button.classList.toggle("is-on", !!loops && button.dataset.block === letter);
     });
-    if (!text || !points) {
+    if (!text || !loops) {
       boxes.innerHTML = "";
       hit.innerHTML = text
         ? `<span class="hit-status">Codes start with a block letter from A to I.</span>`
@@ -1403,13 +1458,12 @@
       return;
     }
     const node = mod && MAP_NODES[mod.code];
-    const xs = points.map((p) => p[0]);
-    const ys = points.map((p) => p[1]);
-    const focusX = node ? node.x : (Math.min(...xs) + Math.max(...xs)) / 2;
-    const focusY = node ? node.y : (Math.min(...ys) + Math.max(...ys)) / 2;
-    const radius = node && MAP_BIG_NODES.has(mod.code) ? 30 : 22;
+    const focus = node || blockBounds(loops);
+    const focusX = focus.x;
+    const focusY = focus.y;
+    const radius = node && MAP_BIG_NODES.has(mod.code) ? 38 : 27;
     boxes.innerHTML = `<svg class="map-outline" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none">
-        <polygon points="${points.map((p) => p.join(",")).join(" ")}"></polygon>
+        ${blockPath(loops)}
         ${node ? `<circle class="map-node" cx="${node.x}" cy="${node.y}" r="${radius}"></circle>` : ""}
       </svg>`;
     if (!mod) {

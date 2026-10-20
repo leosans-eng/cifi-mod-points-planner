@@ -442,7 +442,7 @@ input[type="checkbox"] { accent-color: var(--amber); }
 .mini-map-block img,
 .mini-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .mini-map svg { pointer-events: none; }
-.mini-map svg polygon {
+.mini-map svg .map-block {
   fill: var(--amber-wash);
   stroke: #4fd8ff;
   stroke-width: 28;
@@ -590,15 +590,25 @@ body[data-density="compact"] .level-list { gap: 1px; }
 }
 .map-scroll.is-over-node { cursor: pointer; }
 .map-scroll.is-dragging { cursor: grabbing; }
-.map-progress { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.map-progress circle { stroke: var(--map-well); stroke-width: 1.5; }
-.map-progress .dot-max, .dot-max { fill: var(--green); }
-.map-progress .dot-part, .dot-part { fill: var(--amber); }
-.map-legend { display: flex; gap: 16px; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
+.map-mods { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.map-mods .map-tile { fill: none; stroke: #8c8c8c; stroke-width: 1.6; }
+.map-mods .is-new .map-tile { fill: rgba(72, 72, 72, 0.6); }
+.map-mods .is-owned .map-tile,
+.map-mods .is-maxed .map-tile { stroke: #ff3031; }
+.map-mods .is-big .map-tile { fill: none; stroke: none; }
+.map-mods .is-big.is-owned .map-tile,
+.map-mods .is-big.is-maxed .map-tile { stroke: #ff3031; stroke-width: 2; }
+.map-mods .map-badge { fill: #1c0807; stroke: #e66261; stroke-width: 1.2; }
+.map-mods .is-maxed .map-badge { fill: #c4201f; stroke: #ff8580; }
+.map-mods text { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 700; text-anchor: middle; }
+.map-mods .map-level { fill: #fff; font-size: 10px; }
+.map-mods .map-max { fill: #ff3031; font-size: 8px; letter-spacing: 0.04em; paint-order: stroke; stroke: #1c0807; stroke-width: 2.5px; stroke-linejoin: round; }
+.map-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
 .map-legend span { display: flex; align-items: center; gap: 6px; }
-.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }
-.dot.dot-max { background: var(--green); }
-.dot.dot-part { background: var(--amber); }
+.key { display: inline-block; width: 14px; height: 10px; border: 1.5px solid #8c8c8c; background: #1c0807; }
+.key.key-max { border-color: #ff8580; background: #c4201f; }
+.key.key-owned { border-color: #ff3031; }
+.key.key-new { background: #484848; }
 .map-tip {
   position: fixed;
   z-index: 20;
@@ -617,7 +627,7 @@ body[data-density="compact"] .level-list { gap: 1px; }
 .map-stage { position: relative; }
 .map-stage img { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; }
 .map-outline { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.map-outline polygon {
+.map-outline .map-block {
   fill: var(--amber-wash);
   stroke: #4fd8ff;
   stroke-width: 4;
