@@ -314,6 +314,7 @@
             <h2 class="card-title">Your progress</h2>
             ${completionHtml()}
             <dl class="facts">
+              <div><dt>Total mod level</dt><dd>${totalModLevel()}</dd></div>
               <div><dt>Mods at max level</dt><dd>${stats.maxed} / ${stats.total}</dd></div>
               <div><dt>Mods with a saved level</dt><dd>${owned}</dd></div>
               <div><dt>Current buy order</dt><dd>${planLine}</dd></div>
@@ -1576,6 +1577,10 @@
   function levelFill(mod, level) {
     if (!isCapped(mod) || mod.max <= 0) return 0;
     return Math.max(0, Math.min(100, (level / mod.max) * 100));
+  }
+
+  function totalModLevel() {
+    return MTC.mods.reduce((sum, mod) => sum + (Number(state.levels[mod.code]) || 0), 0);
   }
 
   function completionStats() {
