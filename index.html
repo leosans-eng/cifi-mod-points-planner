@@ -108,11 +108,18 @@
             <label class="config-check config-sub"><input type="checkbox" id="effects-levels"> Owned levels</label>
             <label class="config-check config-sub"><input type="checkbox" id="effects-map" checked> Map</label>
           </div>
+          <div class="config-col">
+            <p class="config-label">Data</p>
+            <button type="button" class="btn ghost small-btn" id="config-backup-save">Download backup</button>
+            <button type="button" class="btn ghost small-btn" id="config-backup-load">Load backup</button>
+            <button type="button" class="btn ghost danger small-btn" id="config-delete-data">Delete all data</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </header>
+<input type="file" id="backup-file" accept=".json,application/json" hidden>
 <main id="app"></main>
 <script>
 ["data.js", "engine.js", "effects.js", "app.js"].forEach(function (file) {

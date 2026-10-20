@@ -12,6 +12,7 @@
   applyEffects();
   selectEditableOnClick();
   bindConfig();
+  bindDataActions();
 
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => goTo(tab.dataset.tab));
@@ -308,6 +309,23 @@
     });
   }
 
+  function bindDataActions() {
+    const file = document.getElementById("backup-file");
+    if (file) {
+      file.addEventListener("change", (event) => {
+        const chosen = event.target.files && event.target.files[0];
+        if (chosen) loadBackup(chosen);
+        event.target.value = "";
+      });
+    }
+    const save = document.getElementById("config-backup-save");
+    const load = document.getElementById("config-backup-load");
+    const wipe = document.getElementById("config-delete-data");
+    if (save) save.addEventListener("click", downloadBackup);
+    if (load) load.addEventListener("click", () => file && file.click());
+    if (wipe) wipe.addEventListener("click", deleteAllData);
+  }
+
   function render() {
     if (state.tab === "levels") renderLevels();
     else if (state.tab === "settings") renderSettings();
@@ -393,7 +411,7 @@
               <button type="button" class="btn ghost" id="backup-save">Download backup</button>
               <button type="button" class="btn ghost" id="backup-load">Load backup</button>
             </div>
-            <input type="file" id="backup-file" accept=".json,application/json" hidden>
+            <button type="button" class="btn ghost danger wide" id="backup-delete">Delete all data</button>
             <p class="note small" id="backup-msg"></p>
           </section>
         </aside>
@@ -401,11 +419,7 @@
     paintRunHistory();
     document.getElementById("backup-save").addEventListener("click", downloadBackup);
     document.getElementById("backup-load").addEventListener("click", () => document.getElementById("backup-file").click());
-    document.getElementById("backup-file").addEventListener("change", (event) => {
-      const file = event.target.files && event.target.files[0];
-      if (file) loadBackup(file);
-      event.target.value = "";
-    });
+    document.getElementById("backup-delete").addEventListener("click", deleteAllData);
   }
 
   function runGains() {
@@ -530,6 +544,12 @@
       location.reload();
     };
     reader.readAsText(file);
+  }
+
+  function deleteAllData() {
+    if (!confirm("Delete every level, setting, and run saved in this browser?")) return;
+    localStorage.removeItem(STORAGE_KEY);
+    location.reload();
   }
 
   app.addEventListener("click", (event) => {
