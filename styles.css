@@ -707,12 +707,47 @@ body[data-density="compact"] .level-list { gap: 1px; }
 h3 { margin: 18px 0 8px; font-size: 16px; }
 .settings .note { margin: 0 0 8px; font-size: 13px; }
 .settings h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 16px 0 8px;
   font-size: 12px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--muted);
 }
+.info-btn {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  background: var(--bg-sunk);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: none;
+}
+.info-btn:hover,
+.info-btn.is-on { color: var(--ink); border-color: var(--amber); }
+.info-box {
+  margin: -2px 0 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-sunk);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.45;
+  text-transform: none;
+}
+.info-box p { margin: 0 0 8px; }
+.info-box p:last-child { margin: 0; }
 .settings h3.first { margin-top: 0; }
 .settings-side { display: grid; gap: 12px; align-content: start; }
 .settings-resets { display: grid; gap: 8px; }

@@ -305,6 +305,7 @@
     });
     document.addEventListener("click", (event) => {
       if (!event.target.closest(".config")) setConfigOpen(false);
+      if (!event.target.closest(".info-btn") && !event.target.closest(".info-box")) closeInfoBoxes();
     });
     document.addEventListener("keydown", (event) => {
       if (event.key !== "Escape") return;
@@ -313,6 +314,7 @@
         setConfigOpen(false);
         return;
       }
+      if (closeInfoBoxes()) return;
       if (state.tab === "map" && state.mapQuery) clearMapSelection();
     });
   }
@@ -2048,6 +2050,7 @@
         ? `<span class="hit-status">Codes start with a block letter from A to I.</span>`
         : `<span class="hit-status">Type a code, or pick a module.</span>`;
       placeMapLevelPop();
+      if (shouldScroll && !text && MAP_NODES.A01) scrollMapTo(MAP_NODES.A01.x, MAP_NODES.A01.y);
       return;
     }
     const node = mod && MAP_NODES[mod.code];
@@ -2084,11 +2087,53 @@
       levelInput.addEventListener("change", () => setMapLevel(mod, levelInput.value));
     }
     placeMapLevelPop();
-    if (shouldScroll) {
-      const scroller = document.getElementById("map-scroll");
-      scroller.scrollLeft = focusX * state.mapZoom - scroller.clientWidth / 2;
-      scroller.scrollTop = focusY * state.mapZoom - scroller.clientHeight / 2;
-    }
+    if (shouldScroll) scrollMapTo(focusX, focusY);
+  }
+
+  function scrollMapTo(x, y) {
+    const scroller = document.getElementById("map-scroll");
+    if (!scroller) return;
+    const place = () => {
+      scroller.scrollLeft = x * state.mapZoom - scroller.clientWidth / 2;
+      scroller.scrollTop = y * state.mapZoom - scroller.clientHeight / 2;
+    };
+    place();
+    if (!scroller.clientWidth) requestAnimationFrame(place);
+  }
+
+  function infoButton(id) {
+    return `<button type="button" class="info-btn" aria-expanded="false" aria-controls="${id}" aria-label="How this is used">?</button>`;
+  }
+
+  function infoBox(id, html) {
+    return `<div class="info-box" id="${id}" hidden>${html}</div>`;
+  }
+
+  function closeInfoBoxes() {
+    let wasOpen = false;
+    document.querySelectorAll(".info-box").forEach((box) => {
+      if (!box.hidden) wasOpen = true;
+      box.hidden = true;
+    });
+    document.querySelectorAll(".info-btn").forEach((button) => {
+      button.classList.remove("is-on");
+      button.setAttribute("aria-expanded", "false");
+    });
+    return wasOpen;
+  }
+
+  function bindInfoBoxes(root) {
+    root.querySelectorAll(".info-btn").forEach((button) => {
+      button.addEventListener("click", () => {
+        const box = document.getElementById(button.getAttribute("aria-controls"));
+        const willOpen = box.hidden;
+        closeInfoBoxes();
+        if (!willOpen) return;
+        box.hidden = false;
+        button.classList.add("is-on");
+        button.setAttribute("aria-expanded", "true");
+      });
+    });
   }
 
   function renderSettings() {
@@ -2120,17 +2165,35 @@
             <input id="ci" class="slider" type="range" min="0" max="100" value="${p.ci}">
           </div>
           <p class="note">Higher cost importance favors cheaper mods when two bonuses are close.</p>
-          <h3>Weights</h3>
+          <h3>Weights ${infoButton("info-weights")}</h3>
+          ${infoBox("info-weights", `
+            <p>Each weight is an exponent on that kind of bonus. Power multiplies a mod's nine cell bonuses, each raised to Cells, then mod points, shards, research, academy points, and materials raised to their own weights. The combined bonus, from Time Dilation and Rule of Time Management, is raised to Cells + Mod points + (Generator MK5 × Shards) + (Generator MK6 × Research) + the Generator MK8 level. Cost reduction is separate: fifteen cost-reduction bonuses are scaled by fixed factors, that sum is multiplied by the Cost reduction weight, and the result is the exponent of 1.05.</p>
+            <p>Rank points sets the base of the seven ship terms: 1 + Rank points divided by 5, 2.5, 2, 8, 4, 5, and 10, for Cradle through Zeus. Cells is in every numerator. Mod points joins from Zagreus on, shards from Demeter, research from Koios, and academy points and materials on Zeus. Cells, mod points, and shards also scale the loop-point term, as the exponent of 2. A loop bonus is multiplied by the square root of loops filled + 1, divided by 2000, and raised to the Mod points weight. A second term raises 1.1 to a bonus times the Mod points weight squared, divided by 10000.</p>
+            <p>A Cells weight of exactly 1 turns the cell bonus of Looper-Cell MK1 and MK2 off. An Academy weight of exactly 1 does the same for Helion's academy bonus and Rule of Productivity. A higher weight makes that bonus move the buy order more. The defaults are the sheet's recommended values.</p>
+          `)}
           <div class="dense" id="weights"></div>
-          <h3>Run stats</h3>
+          <h3>Run stats ${infoButton("info-stats")}</h3>
+          ${infoBox("info-stats", `
+            <p>These numbers scale the next level of particular mods. Where a stat is an exponent or a multiplied growth, 0 makes that bonus 1, so the planner treats the mod as having nothing to add.</p>
+            <p>Player level is the exponent on Alpha, Ceti, Epsilon, Fenix, Gamma, Helion, Rule of Destruction, Rule of Perseverance, Rule of the Swarm, and Rule of Productivity. It multiplies Level Enhancement MK1 through MK8. Beta feeds max(1, level − 42) into the loop terms, and Helion multiplies those terms by player level and by Helion's own level.</p>
+            <p>Loops filled multiplies the MK1–MK8 Looper modules, and it is the exponent of Rule of Looping. It is also the exponent of Looper-Cell MK1 and MK2 while Cells is anything other than exactly 1. Beta's and Helion's loop bonuses are then multiplied by the square root of loops filled + 1 and raised to the Mod points weight. Loop resets is the exponent of the MK1–MK8 Loop Reset Growth modules, Print-Efficiency Accumulator A, and Morag's Thesis on Looping.</p>
+            <p>Operations done multiplies the Cell and Shard Efficiency Operation modules. Studies done multiplies The Rule of Persistence. Equipment bought is the exponent of Equipment Analysis, whose base is (1.14 + 0.04 × its level) / (1.1 + 0.04 × its level). Total research levels is the exponent of Gaiden's Law of Growth. Completed researches is the exponent of Research Progression. Software tech multiplies Tech Software Scaling MK1.</p>
+            <p>Shard tickspeed is shared inside each Time Dilation pair of formulas. Modules 1–4 divide (8 − tickspeed − their levels / 10) by that same amount minus 0.1. Modules 5–8 divide (3 − tickspeed − their levels / 100) by that same amount minus 0.01. A higher tickspeed makes the next level a larger multiplier. The LP doubler bar is added to a mod's own loop points. Full bars are floor((bar + points) / 10), and the remainder of the mod's own points is added after dividing it by 100. That count, times Cells + Mod points + Shards, is the exponent of 2.</p>
+          `)}
           <div class="dense" id="scalars"></div>
-          <h3>Manual generators</h3>
-          <p class="note">These eight counts are added together. That total raises the cell bonus of Accumulative Level Growth Alpha, Delta, and Rule of the Swarm.</p>
+          <h3>Manual generators ${infoButton("info-manuals")}</h3>
+          ${infoBox("info-manuals", `
+            <p>MK1 through MK8 are added into one total. That total is the exponent on the cell bonus of the next level of Accumulative Level Growth Alpha (each level grows by 1.06), Delta (1.12), and Rule of the Swarm (1.11). At 0, that cell bonus stays 1. Alpha and Rule of the Swarm still raise their other bonuses with player level. Delta's calculated bonus is this cell term.</p>
+          `)}
           <div class="dense" id="manuals"></div>
         </section>
         <div class="settings-side">
           <section class="panel">
-            <h3 class="first">Ship rank and crew</h3>
+            <h3 class="first">Ship rank and crew ${infoButton("info-ships")}</h3>
+            ${infoBox("info-ships", `
+              <p>Rank is the exponent of that ship's Rank Benefits module for Cradle, Auxesia, Hephaestus, Demeter, Koios, and Zeus, so a higher rank makes the next level much stronger. Cradle rank is also the exponent of Rule of the Cradle. Zagreus Rank Benefits has no rank exponent, so Zagreus rank is used in the denominator that follows. Every ship's rank sits in the denominator of that ship's rank-point term on every mod: 30 + rank + the ship's Rank Point Transmission level. Cradle, Auxesia, and Demeter add 3 × Accumulative Level Growth Delta. A higher rank makes each rank-point gain smaller. Hephaestus uses the larger of that denominator and its square divided by 45, and a Hephaestus rank below 1 counts as 1.</p>
+              <p>Crew is the exponent of that ship's Crew Motivation module, in ship order: Cradle, Auxesia, Zagreus, Hephaestus, Demeter, Koios, and Zeus.</p>
+            `)}
             <div class="ship-grid" id="ships"></div>
           </section>
           <div class="settings-resets">
@@ -2153,6 +2216,7 @@
         ${stepperInput(`r-${key}`, p.rank[key], `${label} rank`)}
         ${stepperInput(`c-${key}`, p.crew[key], `${label} crew`)}
       </div>`).join("");
+    bindInfoBoxes(app);
     document.getElementById("ci").addEventListener("input", (event) => {
       p.ci = Number(event.target.value);
       document.getElementById("ci-label").textContent = String(p.ci);
