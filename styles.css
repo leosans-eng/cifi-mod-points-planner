@@ -382,7 +382,7 @@ input[type="checkbox"] { accent-color: var(--amber); }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.next .effect, .goal .effect, .map-tip .effect { -webkit-line-clamp: 4; color: var(--muted); }
+.next .effect, .map-tip .effect { -webkit-line-clamp: 4; color: var(--muted); }
 .lv { color: var(--ink); font-weight: 700; }
 .lv b { font-weight: 750; }
 .lock { color: var(--danger); }
@@ -457,16 +457,6 @@ input[type="checkbox"] { accent-color: var(--amber); }
   transform: translate(-50%, -50%);
   pointer-events: none;
 }
-.goal {
-  display: grid;
-  gap: 2px;
-  margin: 0 0 14px;
-  padding: 12px 14px;
-  border: 1px dashed var(--line-strong);
-  border-radius: 0;
-}
-.goal .meta:first-child { margin: 0; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11.5px; }
-.goal strong { font-weight: 600; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 #results .toolbar { margin-top: 16px; }
 .list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
@@ -644,6 +634,49 @@ body[data-density="compact"] .level-list { gap: 1px; }
 .map-tip > span { display: block; margin-top: 2px; color: var(--muted); }
 .map-stage { position: relative; }
 .map-stage img { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; }
+.map-level-pop {
+  --from: -20px;
+  position: absolute;
+  z-index: 4;
+  display: flex;
+  gap: 4px;
+  transform: translate(-50%, 0);
+}
+.map-level-pop[hidden] { display: none; }
+.map-level-pop.is-in { animation: map-level-in 180ms ease-out both; }
+.map-level-pop.is-leaving { animation: map-level-out 140ms ease-in both; pointer-events: none; }
+.map-level-pop button {
+  width: 34px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 0;
+  background: #1c0807;
+  color: #fff;
+  font-weight: 700;
+  font-size: 14px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1.5px #e66261;
+  clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px);
+  cursor: pointer;
+}
+.map-level-pop button:hover:not(:disabled) { box-shadow: inset 0 0 0 1.5px #ff8580; }
+.map-level-pop button:disabled { color: #6a534f; box-shadow: inset 0 0 0 1.5px #5c3330; cursor: default; }
+@keyframes map-level-in {
+  from { transform: translate(-50%, var(--from)); }
+  to { transform: translate(-50%, 0); }
+}
+@keyframes map-level-out {
+  from { transform: translate(-50%, 0); }
+  to { transform: translate(-50%, var(--from)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-level-pop.is-in,
+  .map-level-pop.is-leaving { animation: none; }
+}
 .map-outline { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .map-outline .map-block {
   fill: var(--amber-wash);

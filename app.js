@@ -86,6 +86,7 @@
       showEffectOrder: false,
       showEffectLevels: false,
       showEffectMap: true,
+      showMapBlocks: true,
     };
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
@@ -137,6 +138,7 @@
       showEffectOrder: state.showEffectOrder,
       showEffectLevels: state.showEffectLevels,
       showEffectMap: state.showEffectMap,
+      showMapBlocks: state.showMapBlocks,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
   }
@@ -305,7 +307,13 @@
       if (!event.target.closest(".config")) setConfigOpen(false);
     });
     document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") setConfigOpen(false);
+      if (event.key !== "Escape") return;
+      const menu = document.getElementById("config-menu");
+      if (menu && !menu.hidden) {
+        setConfigOpen(false);
+        return;
+      }
+      if (state.tab === "map" && state.mapQuery) clearMapSelection();
     });
   }
 
@@ -494,14 +502,6 @@
     });
   }
 
-  function goalEstimate(goal) {
-    const gain = typicalGain();
-    if (goal.shortLog == null || !gain) return "";
-    const resets = Math.max(1, Math.ceil(goal.shortLog / gain - 1e-9));
-    if (resets > 100000) return "";
-    return `<span class="meta">About ${resets.toLocaleString()} more ${resets === 1 ? "reset" : "resets"} if each one adds ${formatOom(gain)}, like your recent ones.</span>`;
-  }
-
   function downloadBackup() {
     saveState();
     const payload = {
@@ -659,7 +659,7 @@
       results.innerHTML = `<div class="empty">
         <h2>Nothing to buy</h2>
         <p>This MP can't afford any eligible level. Raise the amount, check your owned levels, or turn off “Only unlocked mods”.</p>
-      </div>${nextGoalHtml(plan.nextGoal)}`;
+      </div>`;
       paintSideMiniMap(null);
       return;
     }
@@ -697,7 +697,6 @@
       </div>
       ${buyListHead()}
       <div class="list" id="buy-list"></div>
-      ${nextGoalHtml(plan.nextGoal)}
       <p class="note small">Checking a row marks that step and everything above it as bought, and saves those levels in this browser. Clear checks puts levels back to how they were when you built the order.</p>`;
     document.getElementById("mark-next").addEventListener("click", () => {
       if (nextIndex >= 0) setBoughtThrough(nextIndex);
@@ -832,17 +831,6 @@
     slot.hidden = false;
     slot.innerHTML = miniMapHtml(code);
     if (side) side.classList.add("has-minimap");
-  }
-
-  function nextGoalHtml(goal) {
-    if (!goal) return "";
-    return `<article class="goal">
-      <p class="meta">Next upgrade after MP runs out</p>
-      <strong>${esc(goal.name)}</strong>
-      ${effectHtml(goal.code, "order")}
-      <span class="meta">${codeButton(goal.code)} · ${levelRange(goal.from, goal.to)} · costs ${mpAmount(goal.costLog)}${goal.shortLog != null ? ` · about ${mpAmount(goal.shortLog)} more than you have left` : ""}${goal.unlocked ? "" : ` · ${lockNote(requirementCodes(goal.code))}`}</span>
-      ${goalEstimate(goal)}
-    </article>`;
   }
 
   function rowHtml(row) {
@@ -1739,6 +1727,7 @@
           <div class="map-hit" id="map-hit"></div>
           <div class="checks stack">
             <label><input id="effects-map-side" type="checkbox" ${state.showEffectMap !== false ? "checked" : ""}> Show what each mod does</label>
+            <label><input id="show-map-blocks" type="checkbox" ${state.showMapBlocks !== false ? "checked" : ""}> Show blocks when clicked</label>
           </div>
           <hr>
           <span class="label">Blocks</span>
@@ -1756,13 +1745,17 @@
             <span><i class="key key-owned"></i>Bought</span>
             <span><i class="key key-new"></i>Not bought</span>
           </div>
-          <p class="note small">Drag to move, scroll to zoom. Click a mod to select it and set its level here.</p>
+          <p class="note small">Drag to move, scroll to zoom.</p>
         </aside>
         <div class="map-scroll" id="map-scroll">
           <div class="map-stage" id="map-stage">
             <img src="${MAP_IMAGE}" alt="Loop mod tree from the game, blocks A through I, showing your level on each mod." draggable="false">
             <svg class="map-mods" id="map-progress" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true"></svg>
             <div id="map-boxes"></div>
+            <div id="map-level-pop" class="map-level-pop" hidden>
+              <button type="button" data-map-step="-1" aria-label="Remove one level">−</button>
+              <button type="button" data-map-step="1" aria-label="Add one level">+</button>
+            </div>
           </div>
         </div>
         <div class="map-tip" id="map-tip" hidden></div>
@@ -1777,6 +1770,11 @@
       const tip = document.getElementById("map-tip");
       if (tip) tip.hidden = true;
     });
+    document.getElementById("show-map-blocks").addEventListener("change", (event) => {
+      state.showMapBlocks = event.target.checked;
+      saveState();
+      paintMapHit(false);
+    });
     document.getElementById("map-in").addEventListener("click", () => zoomMapBy(0.25));
     document.getElementById("map-out").addEventListener("click", () => zoomMapBy(-0.25));
     document.querySelectorAll("[data-block]").forEach((button) => {
@@ -1786,6 +1784,27 @@
         saveState();
         paintMapHit(true);
       });
+    });
+    const levelPop = document.getElementById("map-level-pop");
+    levelPop.addEventListener("pointerdown", (event) => event.stopPropagation());
+    levelPop.addEventListener("pointerup", (event) => event.stopPropagation());
+    levelPop.addEventListener("animationend", (event) => {
+      if (event.target !== levelPop) return;
+      if (event.animationName === "map-level-in" && levelPop.classList.contains("is-in")) {
+        levelPop.classList.remove("is-in");
+        levelPop.classList.add("is-shown");
+      }
+      if (event.animationName === "map-level-out" && levelPop.classList.contains("is-leaving")) {
+        levelPop.classList.remove("is-leaving");
+        if (!levelPop.dataset.code) levelPop.hidden = true;
+      }
+    });
+    levelPop.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-map-step]");
+      if (!button || button.disabled) return;
+      const mod = findModByCode(state.mapQuery);
+      if (!mod) return;
+      setMapLevel(mod, (state.levels[mod.code] || 0) + Number(button.dataset.mapStep));
     });
     applyMapZoom();
     paintMapProgress();
@@ -1841,6 +1860,7 @@
     if (!stage) return;
     stage.style.width = Math.round(MAP_SIZE.w * state.mapZoom) + "px";
     stage.style.height = Math.round(MAP_SIZE.h * state.mapZoom) + "px";
+    placeMapLevelPop();
   }
 
   function zoomMapBy(delta) {
@@ -1893,10 +1913,13 @@
       scroller.classList.remove("is-dragging");
       if (!wasClick) return;
       const code = mapNodeAt(event.clientX, event.clientY);
-      if (!code) return;
+      const query = document.getElementById("map-query");
+      if (!code) {
+        clearMapSelection();
+        return;
+      }
       state.mapQuery = code;
       saveState();
-      const query = document.getElementById("map-query");
       if (query) query.value = code;
       paintMapHit(false);
     });
@@ -1915,6 +1938,15 @@
       if (event.deltaMode === 2) delta *= scroller.clientHeight;
       zoomMapAt(state.mapZoom - delta * 0.0012, anchorX, anchorY);
     }, { passive: false });
+  }
+
+  function clearMapSelection() {
+    if (!state.mapQuery) return;
+    state.mapQuery = "";
+    saveState();
+    const query = document.getElementById("map-query");
+    if (query) query.value = "";
+    paintMapHit(false);
   }
 
   function mapLevelNotes(mod, level, node) {
@@ -1939,6 +1971,64 @@
     const notes = document.getElementById("map-level-notes");
     if (notes) notes.innerHTML = mapLevelNotes(mod, value, MAP_NODES[mod.code]);
     paintMapProgress();
+    placeMapLevelPop();
+  }
+
+  function placeMapLevelPop() {
+    const pop = document.getElementById("map-level-pop");
+    if (!pop) return;
+    const mod = findModByCode(state.mapQuery);
+    const node = mod && MAP_NODES[mod.code];
+    if (!mod || !node) {
+      dismissMapLevelPop(pop);
+      return;
+    }
+    const level = state.levels[mod.code] || 0;
+    const big = MAP_BIG_NODES.has(mod.code);
+    const badgeTop = big ? 21 : 11;
+    const below = big ? 42 : 32;
+    pop.style.left = (node.x * state.mapZoom) + "px";
+    pop.style.top = ((node.y + below) * state.mapZoom) + "px";
+    pop.style.setProperty("--from", ((badgeTop - below) * state.mapZoom) + "px");
+    pop.querySelector("[data-map-step='-1']").disabled = level <= 0;
+    pop.querySelector("[data-map-step='1']").disabled = level >= mod.max;
+    const settled = pop.dataset.code === mod.code && (pop.classList.contains("is-shown") || pop.classList.contains("is-in"));
+    if (settled) return;
+    pop.dataset.code = mod.code;
+    revealMapLevelPop(pop);
+  }
+
+  function revealMapLevelPop(pop) {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    pop.hidden = false;
+    pop.classList.remove("is-leaving");
+    if (reduce) {
+      pop.classList.remove("is-in");
+      pop.classList.add("is-shown");
+      return;
+    }
+    const restart = pop.classList.contains("is-in");
+    pop.classList.remove("is-shown");
+    if (restart) pop.classList.remove("is-in");
+    if (restart) void pop.offsetWidth;
+    pop.classList.add("is-in");
+  }
+
+  function dismissMapLevelPop(pop) {
+    if (pop.hidden || pop.classList.contains("is-leaving")) {
+      pop.dataset.code = "";
+      return;
+    }
+    pop.dataset.code = "";
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const visible = pop.classList.contains("is-shown") || pop.classList.contains("is-in");
+    if (reduce || !visible) {
+      pop.classList.remove("is-in", "is-shown", "is-leaving");
+      pop.hidden = true;
+      return;
+    }
+    pop.classList.add("is-leaving");
+    pop.classList.remove("is-in", "is-shown");
   }
 
   function paintMapHit(shouldScroll) {
@@ -1956,7 +2046,8 @@
       boxes.innerHTML = "";
       hit.innerHTML = text
         ? `<span class="hit-status">Codes start with a block letter from A to I.</span>`
-        : `<span class="hit-status">Type a code, or pick a block below.</span>`;
+        : `<span class="hit-status">Type a code, or pick a module.</span>`;
+      placeMapLevelPop();
       return;
     }
     const node = mod && MAP_NODES[mod.code];
@@ -1964,12 +2055,14 @@
     const focusX = focus.x;
     const focusY = focus.y;
     const radius = node && MAP_BIG_NODES.has(mod.code) ? 38 : 27;
-    boxes.innerHTML = `<svg class="map-outline" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none">
-        ${blockPath(letter)}
-        ${node ? `<circle class="map-node" cx="${node.x}" cy="${node.y}" r="${radius}"></circle>` : ""}
-      </svg>`;
+    const showBlock = state.showMapBlocks !== false;
+    const nodeMark = node ? `<circle class="map-node" cx="${node.x}" cy="${node.y}" r="${radius}"></circle>` : "";
+    const blockMark = showBlock ? blockPath(letter) : "";
+    boxes.innerHTML = blockMark || nodeMark
+      ? `<svg class="map-outline" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none">${blockMark}${nodeMark}</svg>`
+      : "";
     if (!mod) {
-      hit.innerHTML = `<b class="hit-code">Block ${letter}</b><span class="hit-status">Outlined on the map.</span>`;
+      hit.innerHTML = `<b class="hit-code">Block ${letter}</b><span class="hit-status">${showBlock ? "Outlined on the map." : "Block outline is off."}</span>`;
     } else {
       const level = state.levels[mod.code] || 0;
       hit.innerHTML = `<b class="hit-code">${esc(mod.code)}</b>
@@ -1990,6 +2083,7 @@
       bindSteppers(hit);
       levelInput.addEventListener("change", () => setMapLevel(mod, levelInput.value));
     }
+    placeMapLevelPop();
     if (shouldScroll) {
       const scroller = document.getElementById("map-scroll");
       scroller.scrollLeft = focusX * state.mapZoom - scroller.clientWidth / 2;

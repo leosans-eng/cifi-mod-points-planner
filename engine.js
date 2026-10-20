@@ -711,22 +711,6 @@
       }
     }
     if (steps >= limit) stopped = true;
-    let nextGoal = null;
-    if (!stopped) {
-      const scoreLog = Number.isFinite(logMp) ? logMp : 0;
-      const goal = bestBuy(scoreLog, Object.assign({}, progress, { affordOnly: false }));
-      if (goal && goal.cost > logMp + 1e-8) {
-        nextGoal = {
-          code: goal.mod.code,
-          name: goal.mod.name,
-          from: goal.mod.level,
-          to: goal.mod.level + 1,
-          costLog: goal.cost,
-          shortLog: Number.isFinite(logMp) ? subLog(goal.cost, logMp) : goal.cost,
-          unlocked: isUnlocked(goal.mod),
-        };
-      }
-    }
     const summary = [];
     const summaryIndex = new Map();
     for (const group of groups) {
@@ -755,7 +739,6 @@
       summary,
       steps,
       stopped,
-      nextGoal,
       leftLog: logMp,
       startLog,
       ms: Math.round(performance.now() - started),
