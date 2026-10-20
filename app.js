@@ -1104,7 +1104,7 @@
     });
   }
 
-  const MAP_IMAGE = "UpdatedGameMap.png";
+  const MAP_IMAGE = "UpdatedModMap.png";
   const MAP_SIZE = { w: 1840, h: 1614 };
   const MAP_BLOCKS = {
     A: [[[676,999],[736,999],[736,1094],[832,1094],[832,1154],[784,1154],[784,1250],[676,1250],[676,1202],[628,1202],[628,1142],[676,1142]], [[682,852],[731,852],[731,853],[732,853],[732,854],[733,854],[733,855],[734,855],[734,856],[735,856],[735,857],[736,857],[736,880],[843,880],[843,940],[734,940],[734,906],[676,906],[676,858],[677,858],[677,857],[678,857],[678,856],[679,856],[679,855],[680,855],[680,854],[681,854],[681,853],[682,853]]],
@@ -1136,8 +1136,486 @@
   }, {});
   const MAP_BIG_NODES = new Set(["DU1", "EU2", "FU1", "IU1"]);
 
-  function blockPath(loops) {
-    return `<path class="map-block" fill-rule="evenodd" d="${loops.map((loop) => "M" + loop.map((p) => p.join(",")).join("L") + "Z").join("")}"></path>`;
+  const SCALE = 4;
+  const MIN_JOIN = 12;
+  const CELL = 4;
+  
+  function nodeBox(code) {
+    const n = MAP_NODES[code];
+    const m = 8;
+    if (MAP_BIG_NODES.has(code)) return [n.x - 35, n.y - 34, n.x + 35, n.y + 44];
+    return [n.x - 21 - m, n.y - 17 - m, n.x + 21 + m, n.y + 26 + m];
+  }
+  
+  function components(grid, w, h) {
+    const seen = new Uint8Array(grid.length);
+    const comps = [];
+    for (let i = 0; i < grid.length; i++) {
+      if (!grid[i] || seen[i]) continue;
+      const stack = [i];
+      seen[i] = 1;
+    let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+    while (stack.length) {
+      const cur = stack.pop();
+        const x = cur % w;
+        const y = (cur / w) | 0;
+        if (x < x0) x0 = x;
+        if (y < y0) y0 = y;
+        if (x > x1) x1 = x;
+        if (y > y1) y1 = y;
+        if (x > 0 && grid[cur - 1] && !seen[cur - 1]) { seen[cur - 1] = 1; stack.push(cur - 1); }
+        if (x + 1 < w && grid[cur + 1] && !seen[cur + 1]) { seen[cur + 1] = 1; stack.push(cur + 1); }
+        if (y > 0 && grid[cur - w] && !seen[cur - w]) { seen[cur - w] = 1; stack.push(cur - w); }
+        if (y + 1 < h && grid[cur + w] && !seen[cur + w]) { seen[cur + w] = 1; stack.push(cur + w); }
+      }
+      comps.push({ x0, y0, x1, y1 });
+    }
+    return comps;
+  }
+  
+  function fillRect(grid, w, h, x0, y0, x1, y1) {
+    const xa = Math.max(0, Math.floor(Math.min(x0, x1)));
+    const xb = Math.min(w - 1, Math.ceil(Math.max(x0, x1)));
+    const ya = Math.max(0, Math.floor(Math.min(y0, y1)));
+    const yb = Math.min(h - 1, Math.ceil(Math.max(y0, y1)));
+    for (let y = ya; y <= yb; y++) grid.fill(1, y * w + xa, y * w + xb + 1);
+  }
+  
+  function dilate(grid, w, h, r) {
+    const tmp = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const pref = new Int32Array(w + 1);
+      for (let x = 0; x < w; x++) pref[x + 1] = pref[x] + grid[y * w + x];
+      for (let x = 0; x < w; x++) {
+        const a = Math.max(0, x - r);
+        const b = Math.min(w - 1, x + r);
+        if (pref[b + 1] - pref[a]) tmp[y * w + x] = 1;
+      }
+    }
+    grid.fill(0);
+    for (let x = 0; x < w; x++) {
+      const pref = new Int32Array(h + 1);
+      for (let y = 0; y < h; y++) pref[y + 1] = pref[y] + tmp[y * w + x];
+      for (let y = 0; y < h; y++) {
+        const a = Math.max(0, y - r);
+        const b = Math.min(h - 1, y + r);
+        if (pref[b + 1] - pref[a]) grid[y * w + x] = 1;
+      }
+    }
+  }
+  
+  function erode(grid, w, h, r) {
+    const tmp = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) {
+      const pref = new Int32Array(w + 1);
+      for (let x = 0; x < w; x++) pref[x + 1] = pref[x] + grid[y * w + x];
+      for (let x = 0; x < w; x++) {
+        const a = Math.max(0, x - r);
+        const b = Math.min(w - 1, x + r);
+        if (pref[b + 1] - pref[a] === b - a + 1) tmp[y * w + x] = 1;
+      }
+    }
+    grid.fill(0);
+    for (let x = 0; x < w; x++) {
+      const pref = new Int32Array(h + 1);
+      for (let y = 0; y < h; y++) pref[y + 1] = pref[y] + tmp[y * w + x];
+      for (let y = 0; y < h; y++) {
+        const a = Math.max(0, y - r);
+        const b = Math.min(h - 1, y + r);
+        if (pref[b + 1] - pref[a] === b - a + 1) grid[y * w + x] = 1;
+      }
+    }
+  }
+  
+  function foreignHits(rect, foreign) {
+    const [x0, y0, x1, y1] = rect;
+    return foreign.filter((n) => n.x >= x0 - 7 && n.x <= x1 + 7 && n.y >= y0 - 7 && n.y <= y1 + 7).length;
+  }
+  
+  function widestClear(start, end, cross0, cross1, horizontal, foreign) {
+    let best = null;
+    const limit = Math.max(start, end - 4);
+    for (let a = start; a <= limit; a += 2) {
+      for (let b = end; b >= a + MIN_JOIN; b -= 2) {
+        const rect = horizontal ? [cross0, a, cross1, b] : [a, cross0, b, cross1];
+        if (foreignHits(rect, foreign)) continue;
+        const span = b - a;
+        if (!best || span > best.span) best = { a, b, span };
+        break;
+      }
+    }
+    return best;
+  }
+  
+  function placeJoin(a, b, foreign) {
+    const x0 = Math.max(a.x0, b.x0);
+    const x1 = Math.min(a.x1, b.x1);
+    const y0 = Math.max(a.y0, b.y0);
+    const y1 = Math.min(a.y1, b.y1);
+    const verticalGap = a.y1 < b.y0 || b.y1 < a.y0;
+    const horizontalGap = a.x1 < b.x0 || b.x1 < a.x0;
+    if (x1 >= x0 && verticalGap) {
+      const gap0 = Math.min(a.y1, b.y1);
+      const gap1 = Math.max(a.y0, b.y0);
+      const clear = widestClear(x0, x1, gap0, gap1, false, foreign);
+      if (clear) return [clear.a, gap0, clear.b, gap1];
+      const mid = (x0 + x1) / 2;
+      return [mid - MIN_JOIN / 2, gap0, mid + MIN_JOIN / 2, gap1];
+    }
+    if (y1 >= y0 && horizontalGap) {
+      const gap0 = Math.min(a.x1, b.x1);
+      const gap1 = Math.max(a.x0, b.x0);
+      const clear = widestClear(y0, y1, gap0, gap1, true, foreign);
+      if (clear) return [gap0, clear.a, gap1, clear.b];
+      const mid = (y0 + y1) / 2;
+      return [gap0, mid - MIN_JOIN / 2, gap1, mid + MIN_JOIN / 2];
+    }
+    const ax = (a.x0 + a.x1) / 2;
+    const ay = (a.y0 + a.y1) / 2;
+    const bx = (b.x0 + b.x1) / 2;
+    const by = (b.y0 + b.y1) / 2;
+    return { l: true, ax, ay, bx, by };
+  }
+  
+  function edgePixels(grid, w, h, fixed, start, end, vertical) {
+    let lo = Infinity;
+    let hi = -1;
+    const a0 = Math.max(0, fixed - 3);
+    const a1 = Math.min((vertical ? h : w) - 1, fixed + 3);
+    const b0 = Math.max(0, start);
+    const b1 = Math.min((vertical ? w : h) - 1, end);
+    for (let a = a0; a <= a1; a++) {
+      for (let b = b0; b <= b1; b++) {
+        const idx = vertical ? a * w + b : b * w + a;
+        if (!grid[idx]) continue;
+        if (b < lo) lo = b;
+        if (b > hi) hi = b;
+      }
+    }
+    return lo <= hi ? [lo, hi] : [start, end];
+  }
+
+  function tightenJoin(grid, w, h, placed, a, b) {
+    if (placed.l) return placed;
+    const [x0, y0, x1, y1] = placed;
+    const tall = y1 - y0 >= 45 && y1 - y0 > x1 - x0;
+    const wide = x1 - x0 >= 45 && x1 - x0 > y1 - y0;
+    if (!tall && !wide) return placed;
+    const upper = a.y1 <= b.y1 ? a : b;
+    const lower = upper === a ? b : a;
+    const left = a.x1 <= b.x1 ? a : b;
+    const right = left === a ? b : a;
+    const span = tall
+      ? overlapSpan(edgePixels(grid, w, h, upper.y1, upper.x0, upper.x1, true), edgePixels(grid, w, h, lower.y0, lower.x0, lower.x1, true))
+      : overlapSpan(edgePixels(grid, w, h, left.x1, left.y0, left.y1, false), edgePixels(grid, w, h, right.x0, right.y0, right.y1, false));
+    const width = span[1] - span[0];
+    const capped = width <= 24 ? span : [Math.round((span[0] + span[1]) / 2 - 12), Math.round((span[0] + span[1]) / 2 + 12)];
+    return tall ? [capped[0], y0, capped[1], y1] : [x0, capped[0], x1, capped[1]];
+  }
+
+  function overlapSpan(p, q) {
+    const start = Math.max(p[0], q[0]);
+    const end = Math.min(p[1], q[1]);
+    if (end >= start) return [start, end];
+    return p[1] < q[0] ? [p[1] - 6, q[0] + 6] : [q[1] - 6, p[0] + 6];
+  }
+
+  function linkAll(grid, w, h, ox, oy, foreign) {
+    for (let guard = 0; guard < 16; guard++) {
+      const comps = components(grid, w, h);
+      if (comps.length < 2) return comps.length;
+      let best = null;
+      for (let i = 0; i < comps.length; i++) {
+        for (let j = i + 1; j < comps.length; j++) {
+          const a = comps[i], b = comps[j];
+          const dx = a.x1 < b.x0 ? b.x0 - a.x1 : b.x1 < a.x0 ? a.x0 - b.x1 : 0;
+          const dy = a.y1 < b.y0 ? b.y0 - a.y1 : b.y1 < a.y0 ? a.y0 - b.y1 : 0;
+          const dist = dx + dy;
+          if (!best || dist < best.dist) best = { dist, a, b };
+        }
+      }
+      const placed = tightenJoin(grid, w, h, placeJoin(best.a, best.b, foreign.map((n) => ({ x: n.x - ox, y: n.y - oy }))), best.a, best.b);
+      if (placed.l) {
+        fillRect(grid, w, h, placed.ax - MIN_JOIN / 2, placed.ay - MIN_JOIN / 2, placed.bx + MIN_JOIN / 2, placed.ay + MIN_JOIN / 2);
+        fillRect(grid, w, h, placed.bx - MIN_JOIN / 2, placed.ay - MIN_JOIN / 2, placed.bx + MIN_JOIN / 2, placed.by + MIN_JOIN / 2);
+      } else {
+        fillRect(grid, w, h, placed[0], placed[1], placed[2], placed[3]);
+      }
+    }
+    return components(grid, w, h).length;
+  }
+  
+  function trace(grid, w, h) {
+    const next = new Map();
+    const add = (x0, y0, x1, y1) => next.set(x0 + "," + y0, x1 + "," + y1);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (!grid[y * w + x]) continue;
+        if (x === 0 || !grid[y * w + x - 1]) add(x, y + 1, x, y);
+        if (y === 0 || !grid[(y - 1) * w + x]) add(x, y, x + 1, y);
+        if (x + 1 === w || !grid[y * w + x + 1]) add(x + 1, y, x + 1, y + 1);
+        if (y + 1 === h || !grid[(y + 1) * w + x]) add(x + 1, y + 1, x, y + 1);
+      }
+    }
+    const used = new Set();
+    const loops = [];
+    next.forEach((_, from) => {
+      if (used.has(from)) return;
+      const loop = [];
+      let cur = from;
+      while (!used.has(cur)) {
+        used.add(cur);
+        loop.push(cur.split(",").map(Number));
+        const nxt = next.get(cur);
+        if (!nxt || nxt === from) break;
+        cur = nxt;
+      }
+      if (next.get(cur) === from || next.get(loop.length ? loop[loop.length - 1].join(",") : "") === from) loops.push(loop);
+    });
+    const closed = [];
+    next.forEach((_, from) => {
+      if (used.has(from)) return;
+    });
+    // Rebuild closed loops properly.
+    used.clear();
+    next.forEach((_, from) => {
+      if (used.has(from)) return;
+      const loop = [];
+      let cur = from;
+      let closedLoop = false;
+      for (let n = 0; n <= next.size; n++) {
+        if (used.has(cur)) break;
+        used.add(cur);
+        loop.push(cur.split(",").map(Number));
+        const nxt = next.get(cur);
+        if (!nxt) break;
+        if (nxt === from) { closedLoop = true; break; }
+        cur = nxt;
+      }
+      if (closedLoop && loop.length > 2) loops.push(loop);
+    });
+    let best = [];
+    let bestArea = 0;
+    loops.forEach((loop) => {
+      let area = 0;
+      for (let i = 0, j = loop.length - 1; i < loop.length; j = i++) area += loop[j][0] * loop[i][1] - loop[i][0] * loop[j][1];
+      area = Math.abs(area) / 2;
+      if (area > bestArea) { bestArea = area; best = loop; }
+    });
+    const simple = [];
+    best.forEach((p, i) => {
+      const prev = best[(i + best.length - 1) % best.length];
+      const nxt = best[(i + 1) % best.length];
+      if ((prev[0] === p[0] && p[0] === nxt[0]) || (prev[1] === p[1] && p[1] === nxt[1])) return;
+      simple.push(p);
+    });
+    return simple;
+  }
+  
+  function snapPath(poly) {
+    const pts = [];
+    poly.forEach(([x, y]) => {
+      const p = [Math.round(x / CELL) * CELL, Math.round(y / CELL) * CELL];
+      const prev = pts[pts.length - 1];
+      if (!prev || prev[0] !== p[0] || prev[1] !== p[1]) pts.push(p);
+    });
+    const simple = [];
+    pts.forEach((p, i) => {
+      const a = pts[(i + pts.length - 1) % pts.length];
+      const c = pts[(i + 1) % pts.length];
+      if ((a[0] === p[0] && p[0] === c[0]) || (a[1] === p[1] && p[1] === c[1])) return;
+      simple.push(p);
+    });
+    return simple.length >= 4 ? simple : poly;
+  }
+  function sectionShape(letter) {
+    const codes = Object.keys(MAP_NODES).filter((code) => code.charAt(0) === letter);
+    if (!codes.length) return [];
+    const foreign = Object.keys(MAP_NODES).filter((code) => code.charAt(0) !== letter).map((code) => ({ x: MAP_NODES[code].x / SCALE, y: MAP_NODES[code].y / SCALE }));
+    const boxes = codes.map((code) => nodeBox(code).map((n) => n / SCALE));
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    boxes.forEach(([x0, y0, x1, y1]) => {
+      minX = Math.min(minX, x0); minY = Math.min(minY, y0); maxX = Math.max(maxX, x1); maxY = Math.max(maxY, y1);
+    });
+    const pad = 20;
+    const ox = Math.max(0, Math.floor(minX) - pad);
+    const oy = Math.max(0, Math.floor(minY) - pad);
+    const xMax = Math.min(Math.floor((MAP_SIZE.w - 1) / SCALE), Math.ceil(maxX) + pad);
+    const yMax = Math.min(Math.floor((MAP_SIZE.h - 1) / SCALE), Math.ceil(maxY) + pad);
+    const w = xMax - ox + 1;
+    const h = yMax - oy + 1;
+    const grid = new Uint8Array(w * h);
+    boxes.forEach(([x0, y0, x1, y1]) => fillRect(grid, w, h, x0 - ox, y0 - oy, x1 - ox, y1 - oy));
+    dilate(grid, w, h, 6);
+    erode(grid, w, h, 6);
+    linkAll(grid, w, h, ox, oy, foreign);
+    let poly = snapPath(trace(grid, w, h).map(([x, y]) => [(x + ox) * SCALE, (y + oy) * SCALE]));
+    if (letter === "A" || letter === "C" || letter === "H" || letter === "I") {
+      const others = Object.keys(MAP_NODES).filter((code) => code.charAt(0) !== letter).map((code) => MAP_NODES[code]);
+      poly = fillBays(poly, others);
+      poly = squareSteps(poly, others);
+      if (letter === "I") poly = fillBlockedGap(poly, others);
+    }
+    return poly;
+  }
+
+  function pointInside(poly, x, y) {
+    let hit = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const yi = poly[i][1];
+      const yj = poly[j][1];
+      const xi = poly[i][0];
+      const xj = poly[j][0];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) hit = !hit;
+    }
+    return hit;
+  }
+
+  function fillBays(poly, foreign) {
+    const pts = poly.map((p) => p.slice());
+    for (let guard = 0; guard < 40; guard++) {
+      let removed = false;
+      for (let i = 0; i < pts.length; i++) {
+        const a = pts[i];
+        const b = pts[(i + 1) % pts.length];
+        const c = pts[(i + 2) % pts.length];
+        const d = pts[(i + 3) % pts.length];
+        const abx = b[0] - a[0];
+        const aby = b[1] - a[1];
+        const bcx = c[0] - b[0];
+        const bcy = c[1] - b[1];
+        const cdx = d[0] - c[0];
+        const cdy = d[1] - c[1];
+        const depth = Math.abs(abx) + Math.abs(aby);
+        const span = Math.abs(bcx) + Math.abs(bcy);
+        const opposite = abx === -cdx && aby === -cdy;
+        const perpendicular = (abx === 0 && bcy === 0) || (aby === 0 && bcx === 0);
+        if (!opposite || !perpendicular || depth < 4 || depth > 100 || span > 200 || span < 4) continue;
+        const x0 = Math.min(a[0], b[0], c[0]);
+        const x1 = Math.max(a[0], b[0], c[0]);
+        const y0 = Math.min(a[1], b[1], c[1]);
+        const y1 = Math.max(a[1], b[1], c[1]);
+        const cx = (x0 + x1) / 2;
+        const cy = (y0 + y1) / 2;
+        const inside = pointInside(pts, cx, cy);
+        if (inside && depth > 8) continue;
+        if (!inside && foreign.some((n) => n.x > x0 && n.x < x1 && n.y > y0 && n.y < y1)) continue;
+        const drop = [(i + 1) % pts.length, (i + 2) % pts.length].sort((p, q) => q - p);
+        drop.forEach((idx) => pts.splice(idx, 1));
+        removed = true;
+        break;
+      }
+      if (!removed) break;
+    }
+    return pts.length >= 4 ? pts : poly;
+  }
+
+  function squareSteps(poly, foreign) {
+    const pts = poly.map((p) => p.slice());
+    const n = pts.length;
+    const jobs = [];
+    for (let i = 0; i < n; i++) {
+      const a = pts[i];
+      const b = pts[(i + 1) % n];
+      const c = pts[(i + 2) % n];
+      const d = pts[(i + 3) % n];
+      const abx = b[0] - a[0];
+      const aby = b[1] - a[1];
+      const bcx = c[0] - b[0];
+      const bcy = c[1] - b[1];
+      const cdx = d[0] - c[0];
+      const cdy = d[1] - c[1];
+      const jog = Math.abs(bcx) + Math.abs(bcy);
+      const span = Math.abs(cdx) + Math.abs(cdy);
+      const spanCap = jog <= 16 ? 160 : 120;
+      if (jog < 4 || jog > 56 || span < 4 || span > spanCap) continue;
+      if (!((abx === 0 && cdx === 0) || (aby === 0 && cdy === 0))) continue;
+      if (abx * cdx + aby * cdy <= 0) continue;
+      if (!((abx === 0 && bcy === 0) || (aby === 0 && bcx === 0))) continue;
+      const forward = { px: aby === 0 ? d[0] : a[0], py: aby === 0 ? a[1] : d[1] };
+      const back = jog <= 16 ? { px: aby === 0 ? a[0] : d[0], py: aby === 0 ? d[1] : a[1] } : null;
+      const choices = [forward, back].filter(Boolean);
+      for (let k = 0; k < choices.length; k++) {
+        const choice = choices[k];
+        const x0 = Math.min(b[0], c[0], choice.px);
+        const x1 = Math.max(b[0], c[0], choice.px);
+        const y0 = Math.min(b[1], c[1], choice.py);
+        const y1 = Math.max(b[1], c[1], choice.py);
+        if (x1 - x0 < 4 || y1 - y0 < 4) continue;
+        if (pointInside(pts, (x0 + x1) / 2, (y0 + y1) / 2)) continue;
+        if (foreign.some((node) => node.x > x0 && node.x < x1 && node.y > y0 && node.y < y1)) continue;
+        const area = (x1 - x0) * (y1 - y0);
+        jobs.push({ a: i, b: (i + 1) % n, c: (i + 2) % n, d: (i + 3) % n, px: choice.px, py: choice.py, area });
+        break;
+      }
+    }
+    const drop = new Set();
+    const used = new Set();
+    jobs.sort((p, q) => q.area - p.area || q.b - p.b);
+    jobs.forEach((job) => {
+      const idxs = [job.a, job.b, job.c, job.d];
+      if (idxs.some((idx) => used.has(idx))) return;
+      const next = pts[job.d];
+      const prev = pts[job.a];
+      const meetsPrev = job.px === prev[0] || job.py === prev[1];
+      const meetsNext = job.px === next[0] || job.py === next[1];
+      if (meetsPrev && meetsNext) {
+        pts[job.b] = [job.px, job.py];
+        drop.add(job.c);
+        idxs.forEach((idx) => used.add(idx));
+      }
+    });
+    const clean = [];
+    pts.forEach((p, idx) => {
+      if (drop.has(idx)) return;
+      const prev = clean[clean.length - 1];
+      if (!prev || prev[0] !== p[0] || prev[1] !== p[1]) clean.push(p);
+    });
+    return clean.filter((p, i) => {
+      const prev = clean[(i + clean.length - 1) % clean.length];
+      const next = clean[(i + 1) % clean.length];
+      return !((prev[0] === p[0] && p[0] === next[0]) || (prev[1] === p[1] && p[1] === next[1]));
+    });
+  }
+
+  function fillBlockedGap(poly, foreign) {
+    const pts = poly.map((p) => p.slice());
+    for (let i = 0; i < pts.length; i++) {
+      const prev = pts[(i + pts.length - 1) % pts.length];
+      const b = pts[i];
+      const c = pts[(i + 1) % pts.length];
+      const next = pts[(i + 2) % pts.length];
+      if (b[0] !== c[0] || b[1] <= c[1]) continue;
+      if (prev[1] !== b[1] || prev[0] <= b[0] || next[1] !== c[1] || next[0] >= c[0]) continue;
+      const height = b[1] - c[1];
+      const width = c[0] - next[0];
+      if (height < 40 || width < 80) continue;
+      const blocked = foreign.filter((node) => node.y > c[1] && node.y < b[1] && node.x > next[0] && node.x < b[0]);
+      if (!blocked.length) continue;
+      const limit = Math.ceil((Math.max(...blocked.map((node) => node.x)) + 44) / 4) * 4;
+      if (limit >= b[0] - 24 || limit <= next[0] + 24) continue;
+      if (pointInside(pts, (limit + b[0]) / 2, (c[1] + b[1]) / 2)) continue;
+      if (foreign.some((node) => node.x > limit && node.x < b[0] && node.y > c[1] && node.y < b[1])) continue;
+      b[0] = limit;
+      c[0] = limit;
+    }
+    return pts;
+  }
+
+  const sectionOutlineCache = {};
+
+  function sectionOutline(letter) {
+    if (sectionOutlineCache[letter]) return sectionOutlineCache[letter];
+    const loops = MAP_BLOCKS[letter] || [];
+    const fallback = loops.map((loop) => "M" + loop.map((p) => p.join(",")).join("L") + "Z").join("");
+    const poly = sectionShape(letter);
+    const path = poly.length >= 4 ? "M" + poly.map((p) => p.join(",")).join("L") + "Z" : fallback;
+    sectionOutlineCache[letter] = path;
+    return path;
+  }
+
+  function blockPath(letter) {
+    return '<path class="map-block" d="' + sectionOutline(letter) + '"></path>';
   }
 
   function blockBounds(loops) {
@@ -1202,7 +1680,7 @@
       return `<button type="button" class="mini-map mini-map-block" data-map="${esc(code)}" aria-label="${esc(label)}" title="Open the map">
         <img src="${MAP_IMAGE}" alt="">
         <svg viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true">
-          ${blockPath(loops)}
+          ${blockPath(letter)}
         </svg>
       </button>`;
     }
@@ -1258,7 +1736,7 @@
             <span>Find a code</span>
             <input id="map-query" type="text" placeholder="F03, C5u, D1L" value="${esc(state.mapQuery)}">
           </label>
-          <p class="map-hit" id="map-hit"></p>
+          <div class="map-hit" id="map-hit"></div>
           <div class="checks stack">
             <label><input id="effects-map-side" type="checkbox" ${state.showEffectMap !== false ? "checked" : ""}> Show what each mod does</label>
           </div>
@@ -1278,7 +1756,7 @@
             <span><i class="key key-owned"></i>Bought</span>
             <span><i class="key key-new"></i>Not bought</span>
           </div>
-          <p class="note small">Drag to move, scroll to zoom, and click a node to select it.</p>
+          <p class="note small">Drag to move, scroll to zoom. Click a mod to select it and set its level here.</p>
         </aside>
         <div class="map-scroll" id="map-scroll">
           <div class="map-stage" id="map-stage">
@@ -1439,6 +1917,30 @@
     }, { passive: false });
   }
 
+  function mapLevelNotes(mod, level, node) {
+    const letter = mod.code.charAt(0).toUpperCase();
+    const missing = level > 0 ? [] : missingRequirements(mod.code);
+    return `<span class="hit-status">Block ${letter} · level <span class="lv">${level}</span> / ${capLabel(mod)}</span>
+      ${missing.length ? `<span class="hit-status">${lockNote(missing)}</span>` : ""}
+      ${node ? "" : `<span class="hit-status warn">This map image doesn't show this node, so only its block is outlined.</span>`}`;
+  }
+
+  function setMapLevel(mod, raw) {
+    let value = Math.floor(Number(String(raw).replace(/,/g, ".")));
+    if (!Number.isFinite(value) || value < 0) value = 0;
+    if (value > mod.max) value = mod.max;
+    if (value === 0) delete state.levels[mod.code];
+    else state.levels[mod.code] = value;
+    state.plan = null;
+    state.checked = [];
+    saveState();
+    const input = document.getElementById("map-level");
+    if (input) input.value = String(value);
+    const notes = document.getElementById("map-level-notes");
+    if (notes) notes.innerHTML = mapLevelNotes(mod, value, MAP_NODES[mod.code]);
+    paintMapProgress();
+  }
+
   function paintMapHit(shouldScroll) {
     const hit = document.getElementById("map-hit");
     const boxes = document.getElementById("map-boxes");
@@ -1463,7 +1965,7 @@
     const focusY = focus.y;
     const radius = node && MAP_BIG_NODES.has(mod.code) ? 38 : 27;
     boxes.innerHTML = `<svg class="map-outline" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none">
-        ${blockPath(loops)}
+        ${blockPath(letter)}
         ${node ? `<circle class="map-node" cx="${node.x}" cy="${node.y}" r="${radius}"></circle>` : ""}
       </svg>`;
     if (!mod) {
@@ -1472,9 +1974,21 @@
       const level = state.levels[mod.code] || 0;
       hit.innerHTML = `<b class="hit-code">${esc(mod.code)}</b>
         <span class="hit-name">${esc(mod.name)}</span>
-        <span class="hit-status">Block ${letter} · level <span class="lv">${level}</span> / ${capLabel(mod)}</span>
-        ${level > 0 ? "" : (missing => missing.length ? `<span class="hit-status">${lockNote(missing)}</span>` : "")(missingRequirements(mod.code))}
-        ${node ? "" : `<span class="hit-status warn">This map image doesn't show this node, so only its block is outlined.</span>`}`;
+        <label class="field map-level">
+          <span>Level</span>
+          <span class="stepper">
+            <input id="map-level" type="text" inputmode="numeric" value="${level}" aria-label="${esc(mod.code)} level">
+            <span class="stepper-btns">
+              <button type="button" data-step="1" aria-label="Increase ${esc(mod.code)} level">▲</button>
+              <button type="button" data-step="-1" aria-label="Decrease ${esc(mod.code)} level">▼</button>
+            </span>
+          </span>
+        </label>
+        <div id="map-level-notes">${mapLevelNotes(mod, level, node)}</div>`;
+      const levelInput = document.getElementById("map-level");
+      dotsForCommas(levelInput);
+      bindSteppers(hit);
+      levelInput.addEventListener("change", () => setMapLevel(mod, levelInput.value));
     }
     if (shouldScroll) {
       const scroller = document.getElementById("map-scroll");
