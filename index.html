@@ -61,40 +61,53 @@
       </button>
       <div class="config-menu" id="config-menu" hidden>
         <h2>Configurations</h2>
-        <p class="config-label">Theme</p>
-        <div class="theme-choices" role="radiogroup" aria-label="Theme">
-          <button type="button" class="theme-choice" role="radio" data-theme-pick="green" aria-checked="false">
-            <span class="swatch" aria-hidden="true"><i style="background:#0f130e"></i><i style="background:#1c2519"></i><i style="background:#e2a53a"></i></span>
-            Dark green
-          </button>
-          <button type="button" class="theme-choice" role="radio" data-theme-pick="charcoal" aria-checked="false">
-            <span class="swatch" aria-hidden="true"><i style="background:#141413"></i><i style="background:#242422"></i><i style="background:#e2a53a"></i></span>
-            Charcoal
-          </button>
-          <button type="button" class="theme-choice" role="radio" data-theme-pick="light" aria-checked="false">
-            <span class="swatch" aria-hidden="true"><i style="background:#f3f1ec"></i><i style="background:#fff"></i><i style="background:#e2a53a"></i></span>
-            Light
-          </button>
-          <button type="button" class="theme-choice" role="radio" data-theme-pick="red" aria-checked="false">
-            <span class="swatch" aria-hidden="true"><i style="background:#141413"></i><i style="background:#242422"></i><i style="background:#e24b3a"></i></span>
-            Red
-          </button>
-        </div>
-        <p class="config-label">Costs</p>
-        <div class="theme-choices" role="radiogroup" aria-label="Costs">
-          <button type="button" class="theme-choice" role="radio" data-cost-pick="suffix" aria-checked="false">
-            Suffixes <span class="config-example">2.50m</span>
-          </button>
-          <button type="button" class="theme-choice" role="radio" data-cost-pick="sci" aria-checked="false">
-            Scientific <span class="config-example">2.50e6</span>
-          </button>
-        </div>
-        <label class="config-check"><input type="checkbox" id="compact-lists"> Tighter lists</label>
-        <p class="config-label">Mini-map</p>
-        <label class="config-check"><input type="checkbox" id="show-minimap" checked> Show mini-map</label>
-        <div class="theme-choices" id="minimap-place" role="radiogroup" aria-label="Mini-map position">
-          <button type="button" class="theme-choice" role="radio" data-map-place="card" aria-checked="false">Next purchase</button>
-          <button type="button" class="theme-choice" role="radio" data-map-place="side" aria-checked="true">Left of the list</button>
+        <div class="config-cols">
+          <div class="config-col">
+            <p class="config-label">Theme</p>
+            <div class="theme-choices" role="radiogroup" aria-label="Theme">
+              <button type="button" class="theme-choice" role="radio" data-theme-pick="green" aria-checked="false">
+                <span class="swatch" aria-hidden="true"><i style="background:#0f130e"></i><i style="background:#1c2519"></i><i style="background:#e2a53a"></i></span>
+                Dark green
+              </button>
+              <button type="button" class="theme-choice" role="radio" data-theme-pick="charcoal" aria-checked="false">
+                <span class="swatch" aria-hidden="true"><i style="background:#141413"></i><i style="background:#242422"></i><i style="background:#e2a53a"></i></span>
+                Charcoal
+              </button>
+              <button type="button" class="theme-choice" role="radio" data-theme-pick="light" aria-checked="false">
+                <span class="swatch" aria-hidden="true"><i style="background:#f3f1ec"></i><i style="background:#fff"></i><i style="background:#e2a53a"></i></span>
+                Light
+              </button>
+              <button type="button" class="theme-choice" role="radio" data-theme-pick="red" aria-checked="false">
+                <span class="swatch" aria-hidden="true"><i style="background:#141413"></i><i style="background:#242422"></i><i style="background:#e24b3a"></i></span>
+                Red
+              </button>
+            </div>
+          </div>
+          <div class="config-col">
+            <p class="config-label">Costs</p>
+            <div class="theme-choices" role="radiogroup" aria-label="Costs">
+              <button type="button" class="theme-choice" role="radio" data-cost-pick="suffix" aria-checked="false">
+                Suffixes <span class="config-example">2.50m</span>
+              </button>
+              <button type="button" class="theme-choice" role="radio" data-cost-pick="sci" aria-checked="false">
+                Scientific <span class="config-example">2.50e6</span>
+              </button>
+            </div>
+            <p class="config-label">Mini-map</p>
+            <label class="config-check"><input type="checkbox" id="show-minimap" checked> Show mini-map</label>
+            <div class="theme-choices" id="minimap-place" role="radiogroup" aria-label="Mini-map position">
+              <button type="button" class="theme-choice" role="radio" data-map-place="card" aria-checked="false">Next purchase</button>
+              <button type="button" class="theme-choice" role="radio" data-map-place="side" aria-checked="true">Left of the list</button>
+            </div>
+          </div>
+          <div class="config-col">
+            <p class="config-label">UI</p>
+            <label class="config-check"><input type="checkbox" id="compact-lists"> Tighter lists</label>
+            <p class="config-label">Show what each mod does</p>
+            <label class="config-check config-sub"><input type="checkbox" id="effects-order"> Buy order</label>
+            <label class="config-check config-sub"><input type="checkbox" id="effects-levels"> Owned levels</label>
+            <label class="config-check config-sub"><input type="checkbox" id="effects-map" checked> Map</label>
+          </div>
         </div>
       </div>
     </div>
@@ -102,7 +115,7 @@
 </header>
 <main id="app"></main>
 <script>
-["data.js", "engine.js", "app.js"].forEach(function (file) {
+["data.js", "engine.js", "effects.js", "app.js"].forEach(function (file) {
   var script = document.createElement("script");
   script.src = file + "?v=" + window.__assetVersion;
   script.async = false;

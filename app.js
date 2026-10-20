@@ -9,6 +9,7 @@
   applyCostStyle();
   applyDensity();
   applyMiniMap();
+  applyEffects();
   selectEditableOnClick();
   bindConfig();
 
@@ -81,6 +82,9 @@
       compact: false,
       miniMap: true,
       miniMapPlace: "side",
+      showEffectOrder: false,
+      showEffectLevels: false,
+      showEffectMap: true,
     };
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
@@ -129,6 +133,9 @@
       compact: state.compact,
       miniMap: state.miniMap,
       miniMapPlace: state.miniMapPlace,
+      showEffectOrder: state.showEffectOrder,
+      showEffectLevels: state.showEffectLevels,
+      showEffectMap: state.showEffectMap,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
   }
@@ -187,6 +194,49 @@
     document.body.dataset.minimap = state.miniMap ? state.miniMapPlace : "off";
   }
 
+  function effectPlaceOn(place) {
+    if (place === "order") return !!state.showEffectOrder;
+    if (place === "levels") return !!state.showEffectLevels;
+    return state.showEffectMap !== false;
+  }
+
+  function applyEffects() {
+    state.showEffectOrder = !!state.showEffectOrder;
+    state.showEffectLevels = !!state.showEffectLevels;
+    state.showEffectMap = state.showEffectMap !== false;
+    const order = document.getElementById("effects-order");
+    const levels = document.getElementById("effects-levels");
+    const map = document.getElementById("effects-map");
+    if (order) order.checked = state.showEffectOrder;
+    if (levels) levels.checked = state.showEffectLevels;
+    if (map) map.checked = state.showEffectMap;
+  }
+
+  function modEffect(code) {
+    const text = window.MTC_EFFECTS && MTC_EFFECTS[code];
+    return text || "";
+  }
+
+  function effectHtml(code, place) {
+    if (!effectPlaceOn(place)) return "";
+    const text = modEffect(code);
+    if (!text) return "";
+    return `<span class="effect" title="${esc(text)}">${esc(text)}</span>`;
+  }
+
+  function bindEffectToggle(id, place, refresh) {
+    const box = document.getElementById(id);
+    if (!box) return;
+    box.addEventListener("change", () => {
+      if (place === "order") state.showEffectOrder = box.checked;
+      else if (place === "levels") state.showEffectLevels = box.checked;
+      else state.showEffectMap = box.checked;
+      applyEffects();
+      saveState();
+      refresh();
+    });
+  }
+
   function setConfigOpen(open) {
     const menu = document.getElementById("config-menu");
     const button = document.getElementById("config-btn");
@@ -234,6 +284,16 @@
         saveState();
         return;
       }
+      if (event.target.id === "effects-order" || event.target.id === "effects-levels" || event.target.id === "effects-map") {
+        state.showEffectOrder = document.getElementById("effects-order").checked;
+        state.showEffectLevels = document.getElementById("effects-levels").checked;
+        state.showEffectMap = document.getElementById("effects-map").checked;
+        applyEffects();
+        saveState();
+        const place = event.target.id === "effects-order" ? "plan" : event.target.id === "effects-levels" ? "levels" : "map";
+        if (state.tab === place) render();
+        return;
+      }
       if (event.target.id !== "show-minimap") return;
       state.miniMap = event.target.checked;
       applyMiniMap();
@@ -268,9 +328,9 @@
     app.innerHTML = `
       <div class="home">
         <section class="home-intro">
-          <p class="kicker">Fan-made tool · Pre-Ouro only</p>
-          <h1>Mod Points Planner - A more efficient Loop Reset</h1>
-          <span>Based on the <a href="${esc(MTC.DATA.source)}" target="_blank" rel="noopener">original Mod Tree Cultivator</a> sheet, which currently maintained by TSoD. It scores loop mods the same way the sheet's [Buy Now!] checkbox does, but turns the MP from one loop reset into a full buy order at once.<br><br>All the good stuff, like the calculations logic and the loop mod map, belongs to the sheet's authors and contributors. So any bugs might be my fault, not theirs.</span>
+          <p class="kicker">A Fan-made tool for efficient progression · Pre-Ouro only</p>
+          <h1>Mod Points Planner</h1>
+          <span>Based on the <a href="${esc(MTC.DATA.source)}" target="_blank" rel="noopener">original Mod Tree Cultivator</a> sheet by TSoD and SomeGaiden. TSoD currently maintains it. It scores loop mods the same way the sheet's [Buy Now!] checkbox does, but turns the MP from one loop reset into a full buy order at once.<br><br>All the good stuff, like the calculations logic and the loop mod map, belongs to the sheet's authors and contributors. So any bugs might be my fault, not theirs.</span>
           <div class="home-actions">
             <button type="button" class="btn" data-go="plan">Build a buy order</button>
             <button type="button" class="btn ghost" data-go="levels">Enter owned levels</button>
@@ -300,11 +360,13 @@
             <ul class="plain">
               <li>Data matches sheet version 1.2.0.11. It does not cover Ouro mods.</li>
               <li>Nothing is read from the game. Levels only change when you enter them or check rows off.</li>
-              <li>"Export to clipboard" copies Code and Level. Paste it into cell C30 of the sheet to sync back. (WIP but I don't know if it'll work in any way yet because the sheet doesn't accept multiple cells being altered at once)</li>
+              <li>"Export to clipboard" copies Code and Level. I'm still working on a way to sync back to the sheet.</li>
               <li>Loop mod map by TSoD, from the original sheet.</li>
-              <li>This is a fan-made tool and not affiliated with CIFI or its developers. Made by <a href="https://github.com/leosans-eng" target="_blank" rel="noopener">leosans-eng</a>.</li>
+              <li>What a mod does is summarized from the <a href="https://cifi.fandom.com/wiki/Loop_Modifications" target="_blank" rel="noopener">CIFI wiki</a>, with a few being hand-written as the wiki is missing updates.</li>
+              <li>This is a fan-made tool and not affiliated with CIFI, Octocube Games, or the developers of the sheet. Made by <a href="https://github.com/leosans-eng" target="_blank" rel="noopener">leosans-eng</a>.</li>
               <li>You can report bugs or suggest features <a href="https://github.com/leosans-eng/cifi-mod-points-planner/issues" target="_blank" rel="noopener">here</a> or send it to me on Discord (LeoSans).</li>
-              <li>The credits for all good stuff go to the original sheet's authors and contributors.</li>
+              <li>The sheet was made by <span class="credit-name">TSoD</span> (tsod76) and <span class="credit-name">SomeGaiden</span> (SomeGaiden#3989), along with its other contributors. <span class="credit-name">TSoD</span> is the current maintainer.</li>
+              <li>Amazing people that helped create the sheet with Testing, Data and Advice: <span class="credit-names">Chrysto, AXZIOM, Beef, CFlare, Feii, PurpleVortex, Theorizon, TSoD76, Vyrock, Ylith, and InsaneChemist#2382.</span></li>
             </ul>
           </section>
         </section>
@@ -492,6 +554,7 @@
           <div class="checks stack">
             <label><input id="oom" type="checkbox" ${state.oom ? "checked" : ""}> Number is orders of magnitude (log10)</label>
             <label><input id="unlocked" type="checkbox" ${state.progress.unlockedOnly ? "checked" : ""}> Only unlocked mods</label>
+            <label><input id="effects-order-side" type="checkbox" ${state.showEffectOrder ? "checked" : ""}> Show what each mod does</label>
           </div>
           <hr>
           ${owned === 0 ? `<p class="warn small">Every mod is still level 0. Open <a href="#" data-go="levels">Owned levels</a> and enter what you already bought, or this list starts from a fresh tree.</p>` : `<p class="note small">${owned} mods have a saved level. The order starts from those.</p>`}
@@ -520,6 +583,7 @@
       saveState();
     });
     document.getElementById("plan-btn").addEventListener("click", buildPlan);
+    bindEffectToggle("effects-order-side", "order", paintResults);
     updateReadout();
     paintResults();
   }
@@ -597,6 +661,7 @@
         <div class="next-copy">
           <p class="meta">Next purchase</p>
           <h2>${next ? esc(next.name) : "List complete"}</h2>
+          ${next ? effectHtml(next.code, "order") : ""}
           <p>${next ? `${codeButton(next.code)} · ${levelRange(next.from, next.to)} · ${mpAmount(next.costLog)}` : "Every row in this order is checked."}</p>
         </div>
         <div class="next-side">
@@ -658,7 +723,7 @@
     const letters = ["", "A", "B", "C", "D", "E", "F", "G", "H", "I"];
     const block = state.orderBlock || "";
     return `<div class="list-head">
-      <input id="buy-search" type="text" placeholder="Search name or code" value="${esc(state.orderQuery || "")}">
+      <input id="buy-search" type="text" placeholder="Search name, code, or effect" value="${esc(state.orderQuery || "")}">
       <div class="seg" role="group" aria-label="Block">
         ${letters.map((letter) => `<button type="button" data-buy-block="${letter}" class="${block === letter ? "is-on" : ""}">${letter || "All"}</button>`).join("")}
       </div>
@@ -674,7 +739,8 @@
     const name = String(row.name || "").toLowerCase();
     const shortName = String(row.shortName || "").toLowerCase();
     const code = String(row.code || "").toLowerCase();
-    return name.includes(query) || shortName.includes(query) || code.includes(query);
+    const effect = modEffect(row.code).toLowerCase();
+    return name.includes(query) || shortName.includes(query) || code.includes(query) || effect.includes(query);
   }
 
   function paintBuyList() {
@@ -753,6 +819,7 @@
     return `<article class="goal">
       <p class="meta">Next upgrade after MP runs out</p>
       <strong>${esc(goal.name)}</strong>
+      ${effectHtml(goal.code, "order")}
       <span class="meta">${codeButton(goal.code)} · ${levelRange(goal.from, goal.to)} · costs ${mpAmount(goal.costLog)}${goal.shortLog != null ? ` · about ${mpAmount(goal.shortLog)} more than you have left` : ""}${goal.unlocked ? "" : ` · ${lockNote(requirementCodes(goal.code))}`}</span>
       ${goalEstimate(goal)}
     </article>`;
@@ -764,6 +831,7 @@
       ${row.checkable ? `<input type="checkbox" data-i="${row.index}" ${row.done ? "checked" : ""}>` : ""}
       <span>
         <strong>${esc(row.title)}</strong>
+        ${effectHtml(row.code, "order")}
         <span class="meta">${row.detailHtml}${row.unlocked ? "" : ` · ${lockNote(requirementCodes(row.code))}`}</span>
       </span>
       <span class="cost"><b>${mpAmount(row.cost)}</b><span class="meta">${row.extraHtml}</span></span>
@@ -822,13 +890,16 @@
           <button class="btn wide" id="apply-paste" type="button">Apply paste</button>
           <p class="note small" id="paste-msg"></p>
           <button class="btn ghost wide" id="copy-levels" type="button">Export to clipboard</button>
+          <div class="checks stack">
+            <label><input id="effects-levels-side" type="checkbox" ${state.showEffectLevels ? "checked" : ""}> Show what each mod does</label>
+          </div>
           <hr>
           ${completionHtml()}
           <button class="btn ghost danger wide" id="reset-levels" type="button">Reset all levels</button>
         </aside>
         <section class="panel main">
           <div class="list-head">
-            <input id="level-search" type="text" placeholder="Search name or code" value="${esc(state.levelQuery)}">
+            <input id="level-search" type="text" placeholder="Search name, code, or effect" value="${esc(state.levelQuery)}">
             <div class="seg" role="group" aria-label="Block">
               ${["", "A", "B", "C", "D", "E", "F", "G", "H", "I"].map((letter) => `<button type="button" data-level-block="${letter}" class="${state.levelBlock === letter ? "is-on" : ""}">${letter || "All"}</button>`).join("")}
             </div>
@@ -855,6 +926,7 @@
       saveState();
       paintLevelList();
     });
+    bindEffectToggle("effects-levels-side", "levels", paintLevelList);
     document.querySelectorAll("[data-level-block]").forEach((button) => {
       button.addEventListener("click", () => {
         state.levelBlock = button.dataset.levelBlock;
@@ -893,7 +965,7 @@
       if (state.levelBlock && mod.code.charAt(0) !== state.levelBlock) return false;
       if (state.hideMaxed && isMaxed(mod, owned)) return false;
       if (!query) return true;
-      return mod.name.toLowerCase().includes(query) || mod.shortName.toLowerCase().includes(query) || mod.code.toLowerCase().includes(query);
+      return mod.name.toLowerCase().includes(query) || mod.shortName.toLowerCase().includes(query) || mod.code.toLowerCase().includes(query) || modEffect(mod.code).toLowerCase().includes(query);
     });
     const list = document.getElementById("level-list");
     list.innerHTML = rows.map((mod) => {
@@ -904,6 +976,7 @@
         <label class="meta"><input type="checkbox" data-ignore="${esc(mod.code)}" ${state.ignored[mod.code] ? "checked" : ""}> skip</label>
         <span class="mod-main">
           <span class="title-line"><strong>${esc(mod.name)}</strong>${maxed ? `<span class="badge">MAXED</span>` : ""}</span>
+          ${effectHtml(mod.code, "levels")}
           <span class="meta" data-meta>${levelMeta(mod, owned)}</span>
           ${isCapped(mod) ? `<span class="meter" aria-hidden="true"><span data-fill style="width:${levelFill(mod, owned)}%"></span></span>` : ""}
         </span>
@@ -1104,6 +1177,9 @@
             <input id="map-query" type="text" placeholder="F03, C5u, D1L" value="${esc(state.mapQuery)}">
           </label>
           <p class="map-hit" id="map-hit"></p>
+          <div class="checks stack">
+            <label><input id="effects-map-side" type="checkbox" ${state.showEffectMap !== false ? "checked" : ""}> Show what each mod does</label>
+          </div>
           <hr>
           <span class="label">Blocks</span>
           <div class="map-letters">
@@ -1135,6 +1211,10 @@
       state.mapQuery = query.value;
       saveState();
       paintMapHit(true);
+    });
+    bindEffectToggle("effects-map-side", "map", () => {
+      const tip = document.getElementById("map-tip");
+      if (tip) tip.hidden = true;
     });
     document.getElementById("map-in").addEventListener("click", () => zoomMapBy(0.25));
     document.getElementById("map-out").addEventListener("click", () => zoomMapBy(-0.25));
@@ -1195,7 +1275,7 @@
       return;
     }
     const level = state.levels[code] || 0;
-    tip.innerHTML = `<b>${esc(mod.code)}</b> ${esc(mod.name)}<span>Level <span class="lv">${level}</span> / ${capLabel(mod)}</span>`;
+    tip.innerHTML = `<b>${esc(mod.code)}</b> ${esc(mod.name)}${effectHtml(code, "map")}<span>Level <span class="lv">${level}</span> / ${capLabel(mod)}</span>`;
     tip.hidden = false;
     const width = tip.offsetWidth;
     const left = clientX + 16 + width > window.innerWidth ? clientX - 16 - width : clientX + 16;
