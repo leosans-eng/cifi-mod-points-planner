@@ -10,6 +10,7 @@
   applyDensity();
   applyMiniMap();
   applyEffects();
+  applyIcons();
   selectEditableOnClick();
   bindConfig();
   bindDataActions();
@@ -86,12 +87,14 @@
       showEffectOrder: false,
       showEffectLevels: false,
       showEffectMap: true,
+      showIconOrder: true,
+      showIconLevels: true,
+      showIconMap: true,
       showMapBlocks: true,
     };
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!saved) return blank;
-      saved.progress = mergeProgress(saved.progress);
       return Object.assign(blank, saved, { progress: mergeProgress(saved.progress) });
     } catch (err) {
       return blank;
@@ -138,6 +141,9 @@
       showEffectOrder: state.showEffectOrder,
       showEffectLevels: state.showEffectLevels,
       showEffectMap: state.showEffectMap,
+      showIconOrder: state.showIconOrder,
+      showIconLevels: state.showIconLevels,
+      showIconMap: state.showIconMap,
       showMapBlocks: state.showMapBlocks,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
@@ -215,6 +221,24 @@
     if (map) map.checked = state.showEffectMap;
   }
 
+  function iconPlaceOn(place) {
+    if (place === "order") return state.showIconOrder !== false;
+    if (place === "levels") return state.showIconLevels !== false;
+    return state.showIconMap !== false;
+  }
+
+  function applyIcons() {
+    state.showIconOrder = state.showIconOrder !== false;
+    state.showIconLevels = state.showIconLevels !== false;
+    state.showIconMap = state.showIconMap !== false;
+    const order = document.getElementById("icons-order");
+    const levels = document.getElementById("icons-levels");
+    const map = document.getElementById("icons-map");
+    if (order) order.checked = state.showIconOrder;
+    if (levels) levels.checked = state.showIconLevels;
+    if (map) map.checked = state.showIconMap;
+  }
+
   function modEffect(code) {
     const text = window.MTC_EFFECTS && MTC_EFFECTS[code];
     return text || "";
@@ -225,6 +249,19 @@
     const text = modEffect(code);
     if (!text) return "";
     return `<span class="effect" title="${esc(text)}">${esc(text)}</span>`;
+  }
+
+  function bindIconToggle(id, place, refresh) {
+    const box = document.getElementById(id);
+    if (!box) return;
+    box.addEventListener("change", () => {
+      if (place === "order") state.showIconOrder = box.checked;
+      else if (place === "levels") state.showIconLevels = box.checked;
+      else state.showIconMap = box.checked;
+      applyIcons();
+      saveState();
+      refresh();
+    });
   }
 
   function bindEffectToggle(id, place, refresh) {
@@ -294,6 +331,16 @@
         applyEffects();
         saveState();
         const place = event.target.id === "effects-order" ? "plan" : event.target.id === "effects-levels" ? "levels" : "map";
+        if (state.tab === place) render();
+        return;
+      }
+      if (event.target.id === "icons-order" || event.target.id === "icons-levels" || event.target.id === "icons-map") {
+        state.showIconOrder = document.getElementById("icons-order").checked;
+        state.showIconLevels = document.getElementById("icons-levels").checked;
+        state.showIconMap = document.getElementById("icons-map").checked;
+        applyIcons();
+        saveState();
+        const place = event.target.id === "icons-order" ? "plan" : event.target.id === "icons-levels" ? "levels" : "map";
         if (state.tab === place) render();
         return;
       }
@@ -390,6 +437,7 @@
               <li>Nothing is read from the game. Levels only change when you enter them or check rows off.</li>
               <li>"Export to clipboard" copies Code and Level. I'm still working on a way to sync back to the sheet.</li>
               <li>Loop mod map by TSoD, from the original sheet.</li>
+              <li>All game art belongs to Octocube Games. That includes the mod points icon and the loop mod icons beside each mod.</li>
               <li>What a mod does is summarized from the <a href="https://cifi.fandom.com/wiki/Loop_Modifications" target="_blank" rel="noopener">CIFI wiki</a>, with a few being hand-written as the wiki is missing updates.</li>
               <li>This is a fan-made tool and not affiliated with CIFI, Octocube Games, or the developers of the sheet. Made by <a href="https://github.com/leosans-eng" target="_blank" rel="noopener">leosans-eng</a>.</li>
               <li>You can report bugs or suggest features <a href="https://github.com/leosans-eng/cifi-mod-points-planner/issues" target="_blank" rel="noopener">here</a> or send it to me on Discord (LeoSans).</li>
@@ -577,6 +625,7 @@
             <label><input id="oom" type="checkbox" ${state.oom ? "checked" : ""}> Number is orders of magnitude (log10)</label>
             <label><input id="unlocked" type="checkbox" ${state.progress.unlockedOnly ? "checked" : ""}> Only unlocked mods</label>
             <label><input id="effects-order-side" type="checkbox" ${state.showEffectOrder ? "checked" : ""}> Show what each mod does</label>
+            <label><input id="icons-order-side" type="checkbox" ${state.showIconOrder !== false ? "checked" : ""}> Show icons</label>
           </div>
           <hr>
           ${owned === 0 ? `<p class="warn small">Every mod is still level 0. Open <a href="#" data-go="levels">Owned levels</a> and enter what you already bought, or this list starts from a fresh tree.</p>` : `<p class="note small">${owned} mods have a saved level. The order starts from those.</p>`}
@@ -606,6 +655,7 @@
     });
     document.getElementById("plan-btn").addEventListener("click", buildPlan);
     bindEffectToggle("effects-order-side", "order", paintResults);
+    bindIconToggle("icons-order-side", "order", paintResults);
     updateReadout();
     paintResults();
   }
@@ -682,9 +732,14 @@
       <article class="next">
         <div class="next-copy">
           <p class="meta">Next purchase</p>
-          <h2>${next ? esc(next.name) : "List complete"}</h2>
-          ${next ? effectHtml(next.code, "order") : ""}
-          <p>${next ? `${codeButton(next.code)} · ${levelRange(next.from, next.to)} · ${mpAmount(next.costLog)}` : "Every row in this order is checked."}</p>
+          ${next ? `<div class="title-line">
+            ${modGlyph(next.code, "order")}
+            <span class="title-text">
+              <h2>${esc(next.name)}</h2>
+              ${effectHtml(next.code, "order")}
+              <p>${codeButton(next.code)} · ${levelRange(next.from, next.to)} · ${mpAmount(next.costLog)}</p>
+            </span>
+          </div>` : `<h2>List complete</h2><p>Every row in this order is checked.</p>`}
         </div>
         <div class="next-side">
           ${mapInCard ? miniMapHtml(next.code) : ""}
@@ -839,10 +894,15 @@
     return `<label class="buy${row.checkable ? " is-check" : ""}${row.done ? " is-done" : ""}${row.next ? " is-next" : ""}">
       <span class="buy-n">${row.index + 1}</span>
       ${row.checkable ? `<input type="checkbox" data-i="${row.index}" ${row.done ? "checked" : ""}>` : ""}
-      <span>
-        <strong>${esc(row.title)}</strong>
-        ${effectHtml(row.code, "order")}
-        <span class="meta">${row.detailHtml}${row.unlocked ? "" : ` · ${lockNote(requirementCodes(row.code))}`}</span>
+      <span class="buy-copy">
+        <span class="title-line">
+          ${modGlyph(row.code, "order")}
+          <span class="title-text">
+            <strong>${esc(row.title)}</strong>
+            ${effectHtml(row.code, "order")}
+            <span class="meta">${row.detailHtml}${row.unlocked ? "" : ` · ${lockNote(requirementCodes(row.code))}`}</span>
+          </span>
+        </span>
       </span>
       <span class="cost"><b>${mpAmount(row.cost)}</b><span class="meta">${row.extraHtml}</span></span>
     </label>`;
@@ -902,6 +962,7 @@
           <button class="btn ghost wide" id="copy-levels" type="button">Export to clipboard</button>
           <div class="checks stack">
             <label><input id="effects-levels-side" type="checkbox" ${state.showEffectLevels ? "checked" : ""}> Show what each mod does</label>
+            <label><input id="icons-levels-side" type="checkbox" ${state.showIconLevels !== false ? "checked" : ""}> Show icons</label>
           </div>
           <hr>
           ${completionHtml()}
@@ -937,6 +998,7 @@
       paintLevelList();
     });
     bindEffectToggle("effects-levels-side", "levels", paintLevelList);
+    bindIconToggle("icons-levels-side", "levels", paintLevelList);
     document.querySelectorAll("[data-level-block]").forEach((button) => {
       button.addEventListener("click", () => {
         state.levelBlock = button.dataset.levelBlock;
@@ -985,9 +1047,14 @@
       return `<div class="mod-row${maxed ? " is-maxed" : ""}" data-row="${esc(mod.code)}">
         <label class="meta"><input type="checkbox" data-ignore="${esc(mod.code)}" ${state.ignored[mod.code] ? "checked" : ""}> skip</label>
         <span class="mod-main">
-          <span class="title-line"><strong>${esc(mod.name)}</strong>${maxed ? `<span class="badge">MAXED</span>` : ""}</span>
-          ${effectHtml(mod.code, "levels")}
-          <span class="meta" data-meta>${levelMeta(mod, owned)}</span>
+          <span class="title-line">
+            ${modGlyph(mod.code, "levels")}
+            <span class="title-text">
+              <span class="title-name"><strong>${esc(mod.name)}</strong>${maxed ? `<span class="badge">MAXED</span>` : ""}</span>
+              ${effectHtml(mod.code, "levels")}
+              <span class="meta" data-meta>${levelMeta(mod, owned)}</span>
+            </span>
+          </span>
           ${isCapped(mod) ? `<span class="meter" aria-hidden="true"><span data-fill style="width:${levelFill(mod, owned)}%"></span></span>` : ""}
         </span>
         <input type="text" inputmode="numeric" data-level="${esc(mod.code)}" value="${owned}" aria-label="${esc(mod.code)} level">
@@ -1729,6 +1796,7 @@
           <div class="map-hit" id="map-hit"></div>
           <div class="checks stack">
             <label><input id="effects-map-side" type="checkbox" ${state.showEffectMap !== false ? "checked" : ""}> Show what each mod does</label>
+            <label><input id="icons-map-side" type="checkbox" ${state.showIconMap !== false ? "checked" : ""}> Show icons</label>
             <label><input id="show-map-blocks" type="checkbox" ${state.showMapBlocks !== false ? "checked" : ""}> Show blocks when clicked</label>
           </div>
           <hr>
@@ -1771,6 +1839,11 @@
     bindEffectToggle("effects-map-side", "map", () => {
       const tip = document.getElementById("map-tip");
       if (tip) tip.hidden = true;
+    });
+    bindIconToggle("icons-map-side", "map", () => {
+      const tip = document.getElementById("map-tip");
+      if (tip) tip.hidden = true;
+      paintMapHit(false);
     });
     document.getElementById("show-map-blocks").addEventListener("change", (event) => {
       state.showMapBlocks = event.target.checked;
@@ -1849,7 +1922,7 @@
       return;
     }
     const level = state.levels[code] || 0;
-    tip.innerHTML = `<b>${esc(mod.code)}</b> ${esc(mod.name)}${effectHtml(code, "map")}<span>Level <span class="lv">${level}</span> / ${capLabel(mod)}</span>`;
+    tip.innerHTML = `<span class="tip-title"><b>${esc(mod.code)}</b>${modGlyph(code, "map")}<span>${esc(mod.name)}</span></span>${effectHtml(code, "map")}<span>Level <span class="lv">${level}</span> / ${capLabel(mod)}</span>`;
     tip.hidden = false;
     const width = tip.offsetWidth;
     const left = clientX + 16 + width > window.innerWidth ? clientX - 16 - width : clientX + 16;
@@ -2069,7 +2142,7 @@
     } else {
       const level = state.levels[mod.code] || 0;
       hit.innerHTML = `<b class="hit-code">${esc(mod.code)}</b>
-        <span class="hit-name">${esc(mod.name)}</span>
+        <span class="hit-name">${modGlyph(mod.code, "map")}<span>${esc(mod.name)}</span></span>
         <label class="field map-level">
           <span>Level</span>
           <span class="stepper">
@@ -2447,7 +2520,7 @@
     if (!row) return;
     const maxed = isMaxed(mod, level);
     row.classList.toggle("is-maxed", maxed);
-    const title = row.querySelector(".title-line");
+    const title = row.querySelector(".title-name");
     const badge = title.querySelector(".badge");
     if (maxed && !badge) title.insertAdjacentHTML("beforeend", `<span class="badge">MAXED</span>`);
     if (!maxed && badge) badge.remove();
@@ -2455,6 +2528,142 @@
     if (meta) meta.innerHTML = levelMeta(mod, level);
     const fill = row.querySelector("[data-fill]");
     if (fill) fill.style.width = `${levelFill(mod, level)}%`;
+  }
+
+  function modIconFile(code, name) {
+    if (code === "A01" || code === "A04" || code === "A05" || code === "A06" || code === "A09") return "LM-LoopMods-128.png";
+    if (code === "A02") return "DailyReward-128.png";
+    if (code === "A03") return "Arcade-128.png";
+    if (code === "A07" || code === "A10") return "LM-LoopModSGained-128.png";
+    if (code === "A08") return "LM-Ruleof7-128.png";
+    if (code === "A11") return "LM-LoopModSpecial1-128.png";
+    if (code === "A12") return "Arcade-Upgrade-Sabotage-128.png";
+    if (code === "A13") return "snail.png";
+    if (code === "B02" || code === "B10") return "LevelPoints-128.png";
+    if (code === "B11") return "RegularPresetsIcons_1.png";
+    if (code === "DGC" || code === "DGS") return "RegularPresetsIcons_6.png";
+    if (code === "DU1") return "45.png";
+    if (code === "DU2") return "07.png";
+    if (code === "DU3") return "78.png";
+    if (code === "FU1") return "94.png";
+    if (code === "FU2") return "42.png";
+    if (code === "FU3") return "97-2.png";
+    if (code === "FU4") return "76.png";
+    if (/^D\dL$/.test(code) || code === "H09" || code === "H30") return "LM-CellsPerTick.png";
+    if (/^D\dv$/.test(code)) return "mozy.png";
+    if (code === "F02") return "LM-LoopModGoalGrowth-128.png";
+    if (/^F(04|06|08|10|12|14|16|18)$/.test(code)) return "LM-LoopModsGrowth.png";
+    if (/^F(03|05|07|09|11|13|15|17)$/.test(code)) return "LM-Special2-128.png";
+    if (code === "EU1") return "87.png";
+    if (code === "EU2") return "09.png";
+    if (/^EB\d$/.test(code)) return "Automation-Plus.png";
+    if (/^EA\d$/.test(code)) return "Automation-RankPoints.png";
+    if (/^E(01|06|10|14|18|22|26|30)$/.test(code)) return "RankPoints-128.png";
+    if (/^E(03|07|11|15|19|23|27)$/.test(code)) return "LM-ShipRankBonus-128.png";
+    if (code === "E04") return "Crew-TheCradle-256.png";
+    if (code === "E08") return "Crew-TheAuxesia-256.png";
+    if (code === "E12") return "Crew-TheZagreus-256.png";
+    if (code === "E16") return "Crew-TheHephaestus-256.png";
+    if (code === "E20") return "Crew-TheDemeter-256.png";
+    if (code === "E24") return "Crew-TheKoios-256.png";
+    if (code === "E28") return "Crew-TheAres-256.png";
+    if (code === "G08") return "PhaseOne-128.png";
+    if (code === "G09") return "PhaseTwo-128.png";
+    if (code === "G10") return "PhaseThree-128.png";
+    if (code === "G11") return "PhaseFour-128.png";
+    if (code === "G12") return "PhaseFive-128.png";
+    if (code === "G13") return "PhaseSix-128.png";
+    if (code === "G22") return "LM-ResearchPointsPerOperation-128.png";
+    if (code === "G24") return "minotaur (2).png";
+    if (code === "G25") return "robot (5).png";
+    if (code === "G26") return "alien (3).png";
+    if (code === "G27") return "Icon_Jump1.png";
+    if (code === "GU1") return "54.png";
+    if (code === "H10" || code === "H16" || code === "H19") return "qualitative-research.png";
+    if (code === "H11" || code === "H12") return "BioScientist-128.png";
+    if (code === "H13") return "research 1.png";
+    if (code === "H14") return "neural.png";
+    if (code === "H15") return "analysis.png";
+    if (code === "H17") return "idea.png";
+    if (code === "H18") return "genetics.png";
+    if (code === "H20") return "qualitative-research (2).png";
+    if (code === "H21") return "LM-Special1128.png";
+    if (code === "I02") return "AcademyPoints-128.png";
+    if (code === "I04") return "icon_Score.png";
+    if (code === "I06") return "Materials.png";
+    if (code === "IU1") return "62.png";
+    if (code === "IU2") return "64.png";
+    if (code === "IU3") return "26.png";
+    if (code === "I18" || code === "I32") return "LevelPoints-128.png";
+    if (/^I(08|09|10|11|12)$/.test(code)) return "RegularPresetsIcons_9.png";
+    if (/^I(13|14|15|16|17)$/.test(code)) return "personal-data.png";
+    if (/^I(19|20|21|22|23|24)$/.test(code)) return "Icon_Rank.png";
+    if (code === "I25") return "Acadimmeh-128.png";
+    if (code === "I26") return "shape-design-90.png";
+    if (code === "I27") return "AdTokens-128.png";
+    if (/^I(28|29|30|31)$/.test(code)) return "supplier.png";
+    if (code === "IU4") return "52.png";
+    if (code === "IC1") return "planet-P1.png";
+    if (code === "IC2") return "planet-P2.png";
+    if (code === "IC3") return "planet-P3.png";
+    if (code === "IC4") return "planet-P4.png";
+    if (/Time Dilation/i.test(name)) return "LM-TickTime-128.png";
+    if (/Duo Output/i.test(name)) return "LM-DuoOutput-128.png";
+    if (/Quad Output/i.test(name)) return "LM-QuadOutput-128.png";
+    if (/Production Cost/i.test(name)) return "LM-GeneratorCost-128.png";
+    if (/Bulk Construction/i.test(name)) return "LM-GeneratorAmount-128.png";
+    if (/Generator MK/i.test(name)) return "LM-NewGenerator-128.png";
+    if (/Gen Enhancement/i.test(name)) return "LM-GeneratorOutput-128.png";
+    if (/MP Connection/i.test(name)) return "LM-MPConnection-128.png";
+    if (/Loop Reset Growth/i.test(name)) return "LM-ResetGrowth.png";
+    if (/Looper-Cell/i.test(name)) return "LM-CellLoopExponent-128.png";
+    if (/Looper Module/i.test(name)) return "LM-LoopMods-128.png";
+    if (/Venture Module/i.test(name)) return "LM-GeneratorOutput-128.png";
+    if (/Algorithm: Cells/i.test(name)) return "LM-LoopModsGrowth.png";
+    if (/Algorithm: Shards/i.test(name)) return "LM-LoopModSGained-128.png";
+    if (/Rank Point/i.test(name)) return "LM-ShipRankPoint-256.png";
+    if (/Rank Benefits/i.test(name)) return "ICON_Trophy.png";
+    if (/Crew Motivation/i.test(name)) return "person.png";
+    if (/Bulk .*Automation/i.test(name)) return "ICON_Plus.png";
+    if (/Bio-Scientists Cost/i.test(name)) return "LM-GeneratorCost-128.png";
+    if (/Bio-Scientist/i.test(name)) return "LM-ResearchPointsPerOperation-128.png";
+    if (/Cost Modification/i.test(name)) return "LM-MultipleGeneratorCost-128.png";
+    if (/Automation/i.test(name)) return "LM-TechSoftwareScaler-128.png";
+    if (/Fast-Loop/i.test(name)) return "LM-CellGain-128.png";
+    if (/Mod Point Optimization/i.test(name)) return "ModPoints.png";
+    if (/G-Corp/i.test(name)) return "LM-CellGain-128.png";
+    if (/Print-Efficiency/i.test(name)) return "LM-ResetGrowth.png";
+    if (/Unlock Modification/i.test(name)) return "LM-NewGenerator-128.png";
+    if (/Instant Diamond/i.test(name)) return "ResourceDiamond-128.png";
+    if (/Instant (LP|Innovation)/i.test(name)) return "LM-Special1128.png";
+    if (/Cell Loop/i.test(name)) return "LM-CellLoopExponent-128.png";
+    if (/Trinity/i.test(name)) return "LM-Special2-128.png";
+    if (/Level Growth|Level Enhancement/i.test(name)) return "LM-OutputPerPlayerLevel-128.png";
+    if (/Software Scaling/i.test(name)) return "LM-TechSoftwareScaler-128.png";
+    if (/Mining Headquarters/i.test(name)) return "LM-MiningHeadquarters-128.png";
+    if (/Fabrication Improvement/i.test(name)) return "LM-RobotAmountMultiplicative-128.png";
+    if (/Fabrication/i.test(name)) return "LM-RobotAmount-128.png";
+    if (/Robotic Miners/i.test(name)) return "LM-RoboticMiner-128.png";
+    if (/Shard Mining/i.test(name)) return "LM-ShardGain-128.png";
+    if (/Completion Efficiency/i.test(name)) return "LM-LoopModGoalGrowth-128.png";
+    if (/Cell Efficiency Operation/i.test(name)) return "LM-CellsPerOperation-256.png";
+    if (/Shard Efficiency Operation/i.test(name)) return "LM-ShardsPerOperation-128.png";
+    if (/Cell Multiplication/i.test(name)) return "LM-CellGain-128.png";
+    if (/Quick-Study|Research Progression|Multi-Tasking|Gaiden|Printable Genetics|Rule of Persistence/i.test(name)) return "LM-ResearchPointsPerOperation-128.png";
+    if (/Morag/i.test(name)) return "LM-ResetGrowth.png";
+    if (/Equipment Analysis|Mutual Mining/i.test(name)) return "LM-ShardGain-128.png";
+    if (/Secret to Everybody/i.test(name)) return "LM-Special1128.png";
+    if (/Ahead of the Curve/i.test(name)) return "LM-Special2-128.png";
+    if (/Ultima Loop/i.test(name)) return "LM-LoopModSpecial1-128.png";
+    return "LM-LoopMods-128.png";
+  }
+
+  function modGlyph(code, place) {
+    if (place && !iconPlaceOn(place)) return "";
+    const mod = MTC.MODEL.byCode[code];
+    const file = modIconFile(code, mod ? mod.name : "");
+    const src = file === "ModPoints.png" ? "ModPoints.png" : "icons/" + encodeURI(file);
+    return `<span class="mod-glyph"><img src="${src}" alt=""></span>`;
   }
 
   function esc(value) {

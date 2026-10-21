@@ -16,7 +16,7 @@ Amazing people that helped create the sheet with Testing, Data and Advice: Chrys
 
 - This planner follows sheet version 1.2.0.11. It does not cover Ouro mods.
 - The loop mod map, `LoopModMap.png`, is by TSoD and is taken from that sheet.
-- `ModPoints.png` is CIFI game art, used here only as the mod points icon.
+- All game art belongs to Octocube Games. That includes `ModPoints.png` and the loop mod icons in `icons/`.
 
 ## What this fan tool is
 
@@ -25,6 +25,6 @@ Amazing people that helped create the sheet with Testing, Data and Advice: Chrys
 Bugs and suggestions: [https://github.com/leosans-eng/cifi-mod-points-planner/issues](https://github.com/leosans-eng/cifi-mod-points-planner/issues)
 
 - The spreadsheet, its formulas, and the data taken from it belong to TSoD, SomeGaiden, and the sheet's contributors. The sheet is public. No open license was found that allows this repository to relicense that work. `data.js`, the scoring in `engine.js`, and `LoopModMap.png` stay theirs.
-- `ModPoints.png` belongs to the game. It is a property of Octocube Games.
+- All images taken from the game belong to Octocube Games. That includes `ModPoints.png` and the loop mod icons in `icons/`.
 - The page around that data was written by LeoSans as a fan tool. No license is offered for reusing it. I will delete it if the creators of the sheet don't allow this page to be online.
 
