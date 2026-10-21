@@ -1727,6 +1727,54 @@
     return codes.map(mapNodeSvg).join("");
   }
 
+  // WIP icon map. Did a bit of it but got really tired. It was an attempt of a high resolution map built from zero.
+  // Not used. Swap the scan for wipMapPictureSvg when this is ready:
+  // each tile is the module icon, and a line runs to the module that unlocks it.
+  function wipMapNodeSvg(code) {
+    const node = MAP_NODES[code];
+    const mod = MTC.MODEL.byCode[code];
+    if (!node || !mod) return "";
+    const level = state.levels[code] || 0;
+    const big = MAP_BIG_NODES.has(code);
+    const maxed = isMaxed(mod, level);
+    const { x, y } = node;
+    const text = isCapped(mod) ? `${level}/${mod.max}` : big ? `LV. ${shortLevel(level)}` : shortLevel(level);
+    const half = big ? 25.5 : 16.5;
+    const badgeW = big ? 27 : 21;
+    const badgeTop = y + (big ? 21 : 11);
+    const fit = text.length > (big ? 7 : 5) ? ` textLength="${badgeW * 2 - 6}" lengthAdjust="spacingAndGlyphs"` : "";
+    const kind = maxed ? "is-maxed" : level > 0 ? "is-owned" : "is-new";
+    const icon = big ? 34 : 20;
+    return `<g class="map-mod ${kind}${big ? " is-big" : ""}">
+      <polygon class="map-tile" points="${chamferRect(x - half, y - half, x + half, y + half, big ? 7 : 5)}"></polygon>
+      <image class="map-icon" href="${esc(modIconSrc(code))}" x="${x - icon / 2}" y="${y - half + (big ? 4 : 3)}" width="${icon}" height="${icon}" preserveAspectRatio="xMidYMid meet"></image>
+      <polygon class="map-badge" points="${chamferRect(x - badgeW, badgeTop, x + badgeW, badgeTop + 15, 4)}"></polygon>
+      <text class="map-level" x="${x}" y="${badgeTop + 11}"${fit}>${esc(text)}</text>
+      ${maxed && !big ? `<text class="map-max" x="${x}" y="${y - 14}">MAX</text>` : ""}
+    </g>`;
+  }
+
+  function wipMapLinksSvg(limit) {
+    const lines = [];
+    MTC.mods.forEach((mod) => {
+      if (limit && !limit.has(mod.code)) return;
+      const child = MAP_NODES[mod.code];
+      if (!child || !mod.unlock) return;
+      mod.unlock.split(",").forEach((raw) => {
+        const code = raw.trim();
+        if (limit && !limit.has(code)) return;
+        const parent = MAP_NODES[code];
+        if (!parent) return;
+        lines.push(`<line x1="${parent.x}" y1="${parent.y}" x2="${child.x}" y2="${child.y}"></line>`);
+      });
+    });
+    return `<g class="map-links">${lines.join("")}</g>`;
+  }
+
+  function wipMapPictureSvg(codes) {
+    return wipMapLinksSvg(new Set(codes)) + codes.map(wipMapNodeSvg).join("");
+  }
+
   function miniMapHtml(code) {
     const node = MAP_NODES[code];
     const letter = String(code || "").charAt(0).toUpperCase();
@@ -2658,12 +2706,15 @@
     return "LM-LoopMods-128.png";
   }
 
-  function modGlyph(code, place) {
-    if (place && !iconPlaceOn(place)) return "";
+  function modIconSrc(code) {
     const mod = MTC.MODEL.byCode[code];
     const file = modIconFile(code, mod ? mod.name : "");
-    const src = file === "ModPoints.png" ? "ModPoints.png" : "icons/" + encodeURI(file);
-    return `<span class="mod-glyph"><img src="${src}" alt=""></span>`;
+    return file === "ModPoints.png" ? "ModPoints.png" : "icons/" + encodeURI(file);
+  }
+
+  function modGlyph(code, place) {
+    if (place && !iconPlaceOn(place)) return "";
+    return `<span class="mod-glyph"><img src="${modIconSrc(code)}" alt=""></span>`;
   }
 
   function esc(value) {

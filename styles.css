@@ -620,6 +620,10 @@ body[data-density="compact"] .next .title-line .mod-glyph img { width: 24px; hei
 .map-scroll.is-over-node { cursor: pointer; }
 .map-scroll.is-dragging { cursor: grabbing; }
 .map-mods { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+/* WIP icon map. Used by wipMapPictureSvg, not by the scan. */
+.map-links line { stroke: #6e4744; stroke-width: 2; }
+.map-mods .map-icon { pointer-events: none; }
+.map-mods .is-new .map-icon { opacity: 0.55; }
 .map-mods .map-tile { fill: none; stroke: #8c8c8c; stroke-width: 1.6; }
 .map-mods .is-new .map-tile { fill: rgba(72, 72, 72, 0.6); }
 .map-mods .is-owned .map-tile,
