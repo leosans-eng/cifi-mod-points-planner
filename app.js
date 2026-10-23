@@ -67,7 +67,6 @@
       ignored: {},
       progress: Object.assign(MTC.defaultProgress(), { unlockedOnly: true }),
       plan: null,
-      checked: [],
       levelsAtPlan: null,
       orderMode: "order",
       orderQuery: "",
@@ -76,6 +75,7 @@
       ownedOnly: false,
       mapQuery: "",
       mapZoom: 1.5,
+      planMapZoom: 1,
       runs: [],
       levelBlock: "",
       hideMaxed: false,
@@ -91,14 +91,29 @@
       showIconLevels: true,
       showIconMap: true,
       showMapBlocks: true,
+      planBought: {},
     };
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
       if (!saved) return blank;
-      return Object.assign(blank, saved, { progress: mergeProgress(saved.progress) });
+      const next = Object.assign(blank, saved, { progress: mergeProgress(saved.progress) });
+      if (!saved.planBought) next.planBought = boughtFromChecks(saved.plan, saved.checked, saved.levelsAtPlan);
+      delete next.checked;
+      return next;
     } catch (err) {
       return blank;
     }
+  }
+
+  function boughtFromChecks(plan, checked, base) {
+    const bought = {};
+    if (!plan || !Array.isArray(plan.groups) || !Array.isArray(checked)) return bought;
+    plan.groups.forEach((group, i) => {
+      if (!checked[i]) return;
+      const start = (base && base[group.code]) || 0;
+      if (group.to > Math.max(start, bought[group.code] || 0)) bought[group.code] = group.to;
+    });
+    return bought;
   }
 
   function mergeProgress(saved) {
@@ -121,7 +136,7 @@
       ignored: state.ignored,
       progress: state.progress,
       plan: state.plan,
-      checked: state.checked,
+      planBought: state.planBought,
       levelsAtPlan: state.levelsAtPlan,
       orderMode: state.orderMode,
       orderQuery: state.orderQuery,
@@ -130,6 +145,7 @@
       ownedOnly: state.ownedOnly,
       mapQuery: state.mapQuery,
       mapZoom: state.mapZoom,
+      planMapZoom: state.planMapZoom,
       runs: state.runs,
       levelBlock: state.levelBlock,
       hideMaxed: state.hideMaxed,
@@ -396,14 +412,14 @@
     const stats = completionStats();
     const owned = Object.keys(state.levels).length;
     const plan = state.plan;
-    const checked = state.checked.filter(Boolean).length;
+    const checked = plan ? planDoneFlags(plan).filter(Boolean).length : 0;
     const planLine = plan && plan.groups.length
       ? `${checked} of ${plan.groups.length} rows checked`
       : "No buy order yet";
     app.innerHTML = `
       <div class="home">
         <section class="home-intro">
-          <p class="kicker">A Fan-made tool for efficient progression · Pre-Ouro only</p>
+          <p class="kicker">A Fan-made tool · Pre-Ouro only</p>
           <h1>Mod Points Planner</h1>
           <span>Based on the <a href="${esc(MTC.DATA.source)}" target="_blank" rel="noopener">original Mod Tree Cultivator</a> sheet by TSoD and SomeGaiden. TSoD currently maintains it. It scores loop mods the same way the sheet's [Buy Now!] checkbox does, but turns the MP from one loop reset into a full buy order at once.<br><br>All the good stuff, like the calculations logic and the loop mod map, belongs to the sheet's authors and contributors. So any bugs might be my fault, not theirs.</span>
           <div class="home-actions">
@@ -627,10 +643,9 @@
             <label><input id="effects-order-side" type="checkbox" ${state.showEffectOrder ? "checked" : ""}> Show what each mod does</label>
             <label><input id="icons-order-side" type="checkbox" ${state.showIconOrder !== false ? "checked" : ""}> Show icons</label>
           </div>
-          <hr>
-          ${owned === 0 ? `<p class="warn small">Every mod is still level 0. Open <a href="#" data-go="levels">Owned levels</a> and enter what you already bought, or this list starts from a fresh tree.</p>` : `<p class="note small">${owned} mods have a saved level. The order starts from those.</p>`}
-          ${completionHtml()}
+          ${owned === 0 ? `<hr><p class="warn small">Every mod is still level 0. Open <a href="#" data-go="levels">Owned levels</a> and enter what you already bought, or this list starts from a fresh tree.</p>` : ""}
           <div id="plan-minimap" class="plan-minimap" hidden></div>
+          <div class="plan-map-list" id="plan-map-list" hidden></div>
         </aside>
         <section class="panel main" id="results"></section>
       </div>`;
@@ -690,8 +705,9 @@
       progress: state.progress,
     });
     state.plan = plan;
-    state.checked = plan.groups.map(() => false);
+    state.planBought = {};
     saveState();
+    glowPlanMap = true;
     paintResults();
   }
 
@@ -699,6 +715,14 @@
     const results = document.getElementById("results");
     if (!results) return;
     const plan = state.plan;
+    const sideList = document.getElementById("plan-map-list");
+    const listOn = !!(plan && plan.groups.length && state.orderMode === "map");
+    if (sideList) {
+      sideList.hidden = !listOn;
+      if (!listOn) sideList.innerHTML = "";
+      const side = sideList.closest(".side");
+      if (side) side.classList.toggle("has-plan-list", listOn);
+    }
     if (!plan) {
       results.innerHTML = `<div class="empty">
         <h2>No buy order yet</h2>
@@ -715,16 +739,36 @@
       paintSideMiniMap(null);
       return;
     }
-    const bought = state.checked.filter(Boolean).length;
-    const nextIndex = state.checked.findIndex((flag) => !flag);
+    const done = planDoneFlags(plan);
+    const bought = done.filter(Boolean).length;
+    const nextIndex = done.findIndex((flag) => !flag);
     const next = nextIndex === -1 ? null : plan.groups[nextIndex];
-    const spentThrough = nextIndex === 0 ? null : plan.groups[Math.max(0, (nextIndex === -1 ? plan.groups.length : nextIndex) - 1)];
-    const leftLog = spentThrough ? spentThrough.endLogMp : plan.startLog;
-    const mapInCard = !!(next && miniMapEnabled() && state.miniMapPlace !== "side");
+    const leftLog = planLeftLog(plan, done);
+    const levelsLeft = plan.groups.reduce((sum, group, i) => sum + (done[i] ? 0 : group.count), 0);
+    const modsLeft = plan.summary.filter((row) => !groupDone(row)).length;
+    const mode = state.orderMode === "totals" || state.orderMode === "map" ? state.orderMode : "order";
+    const mapInCard = !!(next && mode !== "map" && miniMapEnabled() && state.miniMapPlace !== "side");
+    const oldMap = document.getElementById("plan-map-scroll");
+    const keepMap = mode === "map" && oldMap ? [oldMap.scrollLeft, oldMap.scrollTop, sideList ? sideList.scrollTop : 0] : null;
+    const modeButton = (id, value, label) => `<button class="btn ghost${mode === value ? " is-on" : ""}" type="button" id="${id}" aria-pressed="${mode === value ? "true" : "false"}">${label}</button>`;
+    const body = mode === "map"
+      ? `<div class="plan-map">
+          <div class="plan-map-scroll" id="plan-map-scroll">
+            <div class="plan-map-stage" id="plan-map-stage">
+              <img src="${MAP_IMAGE}" alt="Loop mod tree with the mods in this order marked." draggable="false">
+              <svg class="map-mods" id="plan-map-svg" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true"></svg>
+            </div>
+          </div>
+          <div class="map-tip" id="plan-map-tip" hidden></div>
+        </div>
+        <p class="note small">Checking a mod marks every level this order buys for it, and saves those levels in this browser. Buy order shows those steps as done too. Clear checks puts levels back to how they were when you built the order.</p>`
+      : `${buyListHead()}
+        <div class="list" id="buy-list"></div>
+        <p class="note small">Checking a row marks that step and everything above it as bought, and saves those levels in this browser. Unchecking a row undoes that mod back to where the step started. Clear checks puts levels back to how they were when you built the order.</p>`;
     results.innerHTML = `
       <div class="stats">
-        <div class="stat"><b>${plan.steps.toLocaleString()}</b><span>levels to buy</span></div>
-        <div class="stat"><b>${plan.summary.length}</b><span>different mods</span></div>
+        <div class="stat"><b>${levelsLeft.toLocaleString()}</b><span>levels to buy</span></div>
+        <div class="stat"><b>${modsLeft.toLocaleString()}</b><span>different mods</span></div>
         <div class="stat"><b>${mpAmount(leftLog)}</b><span>Still unspent${bought ? " after checked rows" : ""}</span></div>
         <div class="stat"><b>${plan.ms} ms</b><span>to calculate</span></div>
       </div>
@@ -747,29 +791,27 @@
         </div>
       </article>
       <div class="toolbar">
-        <button class="btn ghost${state.orderMode === "totals" ? "" : " is-on"}" type="button" id="mode-order" aria-pressed="${state.orderMode === "totals" ? "false" : "true"}">Buy order</button>
-        <button class="btn ghost${state.orderMode === "totals" ? " is-on" : ""}" type="button" id="mode-totals" aria-pressed="${state.orderMode === "totals" ? "true" : "false"}">Totals per mod</button>
+        ${modeButton("mode-order", "order", "Buy order")}
+        ${modeButton("mode-totals", "totals", "Totals per mod")}
+        ${modeButton("mode-map", "map", `<img class="btn-icon" src="icons/LoopModMenu-256.png" alt="">Plan map`)}
         <button class="btn ghost" type="button" id="copy-list">Copy list</button>
         <button class="btn ghost" type="button" id="clear-checks">Clear checks</button>
       </div>
-      ${buyListHead()}
-      <div class="list" id="buy-list"></div>
-      <p class="note small">Checking a row marks that step and everything above it as bought, and saves those levels in this browser. Clear checks puts levels back to how they were when you built the order.</p>`;
+      ${body}`;
     document.getElementById("mark-next").addEventListener("click", () => {
-      if (nextIndex >= 0) setBoughtThrough(nextIndex);
+      if (nextIndex < 0) return;
+      if (mode === "map") panToNextMod = true;
+      setBoughtThrough(nextIndex);
     });
-    document.getElementById("mode-order").addEventListener("click", () => {
-      state.orderMode = "order";
-      saveState();
-      paintResults();
-    });
-    document.getElementById("mode-totals").addEventListener("click", () => {
-      state.orderMode = "totals";
-      saveState();
-      paintResults();
+    [["mode-order", "order"], ["mode-totals", "totals"], ["mode-map", "map"]].forEach(([id, value]) => {
+      document.getElementById(id).addEventListener("click", () => {
+        state.orderMode = value;
+        saveState();
+        paintResults();
+      });
     });
     const buySearch = document.getElementById("buy-search");
-    buySearch.addEventListener("input", () => {
+    if (buySearch) buySearch.addEventListener("input", () => {
       state.orderQuery = buySearch.value;
       saveState();
       paintBuyList();
@@ -785,14 +827,35 @@
     document.getElementById("copy-list").addEventListener("click", copyList);
     document.getElementById("clear-checks").addEventListener("click", () => {
       if (!confirm("Clear every check and put levels back to how they were when you built this order?")) return;
-      state.checked = plan.groups.map(() => false);
+      state.planBought = {};
       state.levels = Object.assign({}, state.levelsAtPlan || {});
       saveState();
       paintResults();
     });
-    paintBuyList();
+    if (mode === "map") {
+      paintPlanMap(!keepMap);
+      const scroller = document.getElementById("plan-map-scroll");
+      if (keepMap && scroller) [scroller.scrollLeft, scroller.scrollTop] = keepMap;
+      if (keepMap && sideList) sideList.scrollTop = keepMap[2];
+      if (panToNextMod && next) {
+        planMapPick = "";
+        pickPlanMod(next.code, false);
+        panPlanMapTo(next.code);
+      }
+    } else {
+      paintBuyList();
+    }
+    panToNextMod = false;
+    if (glowPlanMap) {
+      const button = document.getElementById("mode-map");
+      if (button && mode !== "map") {
+        button.classList.add("is-glow");
+        button.addEventListener("animationend", () => button.classList.remove("is-glow"), { once: true });
+      }
+      glowPlanMap = false;
+    }
     paintCompletion();
-    paintSideMiniMap(next && miniMapEnabled() && state.miniMapPlace === "side" ? next.code : null);
+    paintSideMiniMap(next && mode !== "map" && miniMapEnabled() && state.miniMapPlace === "side" ? next.code : null);
   }
 
   function buyListHead() {
@@ -823,7 +886,8 @@
     const list = document.getElementById("buy-list");
     const plan = state.plan;
     if (!list || !plan) return;
-    const nextIndex = state.checked.findIndex((flag) => !flag);
+    const done = planDoneFlags(plan);
+    const nextIndex = done.findIndex((flag) => !flag);
     const source = state.orderMode === "totals" ? plan.summary : plan.groups;
     const rows = source.map((row, index) => ({ row, index })).filter(({ row }) => buyRowMatches(row));
     const count = document.getElementById("buy-count");
@@ -845,7 +909,7 @@
         cost: row.costLog,
         extraHtml: "",
         unlocked: row.unlocked,
-        done: false,
+        done: groupDone(row),
         next: false,
         checkable: false,
       })).join("");
@@ -859,7 +923,7 @@
       cost: row.costLog,
       extraHtml: `left ${mpAmount(row.endLogMp)}`,
       unlocked: row.unlocked,
-      done: !!state.checked[index],
+      done: done[index],
       next: index === nextIndex,
       checkable: true,
     })).join("");
@@ -910,34 +974,310 @@
 
   function setBoughtThrough(index, on) {
     const plan = state.plan;
-    if (!plan) return;
-    const enable = on !== false;
-    if (enable) {
-      for (let i = 0; i <= index; i++) state.checked[i] = true;
+    if (!plan || !plan.groups[index]) return;
+    if (on !== false) {
+      for (let i = 0; i <= index; i++) {
+        const group = plan.groups[i];
+        if (planLevel(group.code) < group.to) setPlanLevel(group.code, group.to);
+      }
     } else {
-      for (let i = index; i < state.checked.length; i++) state.checked[i] = false;
+      const group = plan.groups[index];
+      setPlanLevel(group.code, group.from);
     }
-    const levels = Object.assign({}, state.levelsAtPlan || {});
+    applyPlanBought();
+    revealNext = true;
+    paintResults();
+  }
+
+  function planBase(code) {
+    return (state.levelsAtPlan && state.levelsAtPlan[code]) || 0;
+  }
+
+  function planLevel(code) {
+    const bought = state.planBought && state.planBought[code];
+    return Math.max(planBase(code), bought || 0);
+  }
+
+  function setPlanLevel(code, level) {
+    if (!state.planBought) state.planBought = {};
+    if (level <= planBase(code)) delete state.planBought[code];
+    else state.planBought[code] = level;
+  }
+
+  function groupDone(group) {
+    return planLevel(group.code) >= group.to;
+  }
+
+  function planDoneFlags(plan) {
+    return plan.groups.map(groupDone);
+  }
+
+  function planLeftLog(plan, done) {
+    if (done.every(Boolean)) return plan.leftLog;
+    let spent = null;
     plan.groups.forEach((group, i) => {
-      if (state.checked[i]) levels[group.code] = group.to;
+      if (done[i]) spent = spent === null ? group.costLog : MTC.addLog(spent, group.costLog);
+    });
+    if (spent === null) return plan.startLog;
+    const left = MTC.subLog(plan.startLog, spent);
+    return left === null ? plan.leftLog : left;
+  }
+
+  function applyPlanBought() {
+    const levels = Object.assign({}, state.levelsAtPlan || {});
+    Object.keys(state.planBought || {}).forEach((code) => {
+      levels[code] = Math.max(levels[code] || 0, state.planBought[code]);
     });
     state.levels = levels;
     saveState();
-    revealNext = true;
+  }
+
+  function setModBought(code, on) {
+    const plan = state.plan;
+    const row = plan && plan.summary.find((item) => item.code === code);
+    if (!row) return;
+    setPlanLevel(code, on ? row.to : row.from);
+    applyPlanBought();
     paintResults();
+  }
+
+  let planMapPick = "";
+  let panToNextMod = false;
+  let glowPlanMap = false;
+
+  function paintPlanMap(center) {
+    const list = document.getElementById("plan-map-list");
+    const svg = document.getElementById("plan-map-svg");
+    const plan = state.plan;
+    if (!list || !svg || !plan) return;
+    if (planMapPick && !plan.summary.some((row) => row.code === planMapPick)) planMapPick = "";
+    const left = plan.summary.filter((row) => !groupDone(row));
+    const done = plan.summary.filter(groupDone);
+    const rowHtml = (row) => {
+      const isDone = groupDone(row);
+      const now = planLevel(row.code);
+      const from = isDone ? row.from : Math.max(row.from, now);
+      const range = isDone ? `${levelRange(row.from, row.to)} · bought` : `${levelRange(from, row.to)} · ${row.to - from} left`;
+      return `<div class="buy is-check plan-row${isDone ? " is-done" : ""}${row.code === planMapPick ? " is-picked" : ""}" data-plan-code="${esc(row.code)}">
+        <input type="checkbox" data-plan-check="${esc(row.code)}" ${isDone ? "checked" : ""} aria-label="Mark ${esc(row.name)} bought">
+        <span class="buy-copy">
+          <span class="title-line">
+            ${modGlyph(row.code, "order")}
+            <span class="title-text">
+              <strong>${esc(row.name)}</strong>
+              <span class="meta">${esc(row.code)} · ${range}</span>
+              <span class="meta">${mpAmount(row.costLog)}</span>
+            </span>
+          </span>
+        </span>
+      </div>`;
+    };
+    list.innerHTML = `
+      <p class="meta plan-map-count">${left.length} to buy · ${done.length} bought</p>
+      ${left.map(rowHtml).join("")}
+      ${done.length ? `<p class="meta plan-map-count">Bought</p>${done.map(rowHtml).join("")}` : ""}`;
+    list.querySelectorAll("[data-plan-check]").forEach((input) => {
+      input.addEventListener("click", (event) => event.stopPropagation());
+      input.addEventListener("change", () => {
+        planMapPick = input.dataset.planCheck;
+        setModBought(input.dataset.planCheck, input.checked);
+      });
+    });
+    list.querySelectorAll("[data-plan-code]").forEach((row) => {
+      row.addEventListener("click", (event) => {
+        if (event.target.closest("[data-code], [data-map]")) return;
+        pickPlanMod(row.dataset.planCode, true);
+      });
+    });
+    const codes = plan.summary.map((row) => row.code).filter((code) => MAP_NODES[code]);
+    svg.innerHTML = mapNodesSvg(Object.keys(MAP_NODES)) + codes.map(planMapMarkSvg).join("");
+    const stage = document.getElementById("plan-map-stage");
+    stage.style.width = Math.round(MAP_SIZE.w * state.planMapZoom) + "px";
+    stage.style.height = Math.round(MAP_SIZE.h * state.planMapZoom) + "px";
+    bindPlanMapPointer();
+    if (center) {
+      const focus = planMapPick || (left.find((row) => MAP_NODES[row.code]) || {}).code || codes[0];
+      if (focus) scrollPlanMapTo(focus);
+    }
+  }
+
+  function planMapMarkSvg(code) {
+    const node = MAP_NODES[code];
+    const row = state.plan.summary.find((item) => item.code === code);
+    const big = MAP_BIG_NODES.has(code);
+    const isDone = groupDone(row);
+    const { x, y } = node;
+    const half = (big ? 25.5 : 16.5) + 3;
+    const badgeTop = y + (big ? 21 : 11);
+    const text = isDone ? `✓ ${shortLevel(row.to)}` : `${shortLevel(state.levels[code] || 0)}→${shortLevel(row.to)}`;
+    const badgeW = Math.min(big ? 34 : 27, Math.max(big ? 27 : 21, text.length * 2.9 + 5));
+    const fit = text.length * 5.8 > badgeW * 2 - 6 ? ` textLength="${badgeW * 2 - 6}" lengthAdjust="spacingAndGlyphs"` : "";
+    const kind = `${isDone ? "is-done" : "is-left"}${code === planMapPick ? " is-picked" : ""}`;
+    return `<g class="plan-mark ${kind}" data-code="${esc(code)}">
+      <polygon class="plan-outline" points="${chamferRect(x - half, y - half, x + half, y + half, big ? 8 : 6)}"></polygon>
+      <polygon class="plan-badge" points="${chamferRect(x - badgeW, badgeTop, x + badgeW, badgeTop + 15, 4)}"></polygon>
+      <text x="${x}" y="${badgeTop + 11}"${fit}>${esc(text)}</text>
+    </g>`;
+  }
+
+  function pickPlanMod(code, scrollMap) {
+    planMapPick = planMapPick === code && !scrollMap ? "" : code;
+    const list = document.getElementById("plan-map-list");
+    if (list) {
+      list.querySelectorAll("[data-plan-code]").forEach((row) => row.classList.toggle("is-picked", row.dataset.planCode === planMapPick));
+      const picked = list.querySelector(".is-picked");
+      if (picked && !scrollMap) picked.scrollIntoView({ block: "nearest" });
+    }
+    const svg = document.getElementById("plan-map-svg");
+    if (svg) svg.querySelectorAll(".plan-mark").forEach((mark) => mark.classList.toggle("is-picked", mark.dataset.code === planMapPick));
+    if (scrollMap && planMapPick) scrollPlanMapTo(planMapPick);
+  }
+
+  function scrollPlanMapTo(code) {
+    const node = MAP_NODES[code];
+    if (!node) return;
+    const go = (tries) => {
+      const scroller = document.getElementById("plan-map-scroll");
+      if (!scroller) return;
+      if (!scroller.clientWidth && tries > 0) {
+        requestAnimationFrame(() => go(tries - 1));
+        return;
+      }
+      scroller.scrollLeft = node.x * state.planMapZoom - scroller.clientWidth / 2;
+      scroller.scrollTop = node.y * state.planMapZoom - scroller.clientHeight / 2;
+    };
+    go(10);
+    afterStyles(() => go(0));
+  }
+
+  function panPlanMapTo(code) {
+    const node = MAP_NODES[code];
+    const scroller = document.getElementById("plan-map-scroll");
+    if (!node || !scroller) return;
+    scroller.scrollTo({
+      left: node.x * state.planMapZoom - scroller.clientWidth / 2,
+      top: node.y * state.planMapZoom - scroller.clientHeight / 2,
+      behavior: "smooth",
+    });
+  }
+
+  function planMapNodeAt(clientX, clientY, anyMod) {
+    const stage = document.getElementById("plan-map-stage");
+    const plan = state.plan;
+    if (!stage || !plan) return null;
+    const rect = stage.getBoundingClientRect();
+    const x = (clientX - rect.left) / state.planMapZoom;
+    const y = (clientY - rect.top) / state.planMapZoom;
+    const codes = anyMod ? Object.keys(MAP_NODES) : plan.summary.map((row) => row.code);
+    let best = null;
+    let bestDist = Infinity;
+    codes.forEach((code) => {
+      const node = MAP_NODES[code];
+      if (!node) return;
+      const reach = anyMod ? (MAP_BIG_NODES.has(code) ? 30 : 22) : (MAP_BIG_NODES.has(code) ? 38 : 27);
+      const dist = Math.hypot(node.x - x, node.y - y);
+      if (dist <= reach && dist < bestDist) {
+        best = code;
+        bestDist = dist;
+      }
+    });
+    return best;
+  }
+
+  function paintPlanMapTip(code, clientX, clientY) {
+    const tip = document.getElementById("plan-map-tip");
+    if (!tip) return;
+    const mod = code && effectPlaceOn("order") && MTC.MODEL.byCode[code];
+    if (!mod) {
+      tip.hidden = true;
+      return;
+    }
+    const row = state.plan && state.plan.summary.find((item) => item.code === code);
+    const level = state.levels[code] || 0;
+    const planLine = row ? `<span>Buy order: <span class="lv">${row.from}</span> → <span class="lv">${row.to}</span>${groupDone(row) ? " · bought" : ""}</span>` : "";
+    tip.innerHTML = `<span class="tip-title"><b>${esc(mod.code)}</b><span>${esc(mod.name)}</span></span>${effectHtml(code, "order")}<span>Level <span class="lv">${level}</span> / ${capLabel(mod)}</span>${planLine}`;
+    tip.hidden = false;
+    const width = tip.offsetWidth;
+    const left = clientX + 16 + width > window.innerWidth ? clientX - 16 - width : clientX + 16;
+    tip.style.left = Math.max(8, left) + "px";
+    tip.style.top = (clientY + 16) + "px";
+  }
+
+  function zoomPlanMapAt(nextZoom, anchorX, anchorY) {
+    const scroller = document.getElementById("plan-map-scroll");
+    const stage = document.getElementById("plan-map-stage");
+    const oldZoom = state.planMapZoom || 1;
+    const next = Math.min(3, Math.max(0.4, nextZoom));
+    if (!scroller || !stage || next === oldZoom) return;
+    const ratio = next / oldZoom;
+    state.planMapZoom = next;
+    stage.style.width = Math.round(MAP_SIZE.w * next) + "px";
+    stage.style.height = Math.round(MAP_SIZE.h * next) + "px";
+    scroller.scrollLeft = anchorX * ratio - (anchorX - scroller.scrollLeft);
+    scroller.scrollTop = anchorY * ratio - (anchorY - scroller.scrollTop);
+    saveState();
+  }
+
+  function bindPlanMapPointer() {
+    const scroller = document.getElementById("plan-map-scroll");
+    if (!scroller || scroller.dataset.bound) return;
+    scroller.dataset.bound = "1";
+    let drag = null;
+    scroller.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      drag = { x: event.clientX, y: event.clientY, left: scroller.scrollLeft, top: scroller.scrollTop };
+      scroller.classList.add("is-dragging");
+      try { scroller.setPointerCapture(event.pointerId); } catch (err) { /* pointer already released */ }
+      event.preventDefault();
+    });
+    scroller.addEventListener("pointermove", (event) => {
+      if (!drag) {
+        scroller.classList.toggle("is-over-node", !!planMapNodeAt(event.clientX, event.clientY));
+        paintPlanMapTip(planMapNodeAt(event.clientX, event.clientY, true), event.clientX, event.clientY);
+        return;
+      }
+      if (Math.abs(event.clientX - drag.x) + Math.abs(event.clientY - drag.y) > 4) drag.moved = true;
+      paintPlanMapTip(null);
+      scroller.scrollLeft = drag.left - (event.clientX - drag.x);
+      scroller.scrollTop = drag.top - (event.clientY - drag.y);
+    });
+    scroller.addEventListener("pointerup", (event) => {
+      const wasClick = drag && !drag.moved;
+      drag = null;
+      scroller.classList.remove("is-dragging");
+      if (!wasClick) return;
+      const code = planMapNodeAt(event.clientX, event.clientY);
+      if (code) pickPlanMod(code, false);
+      else if (planMapPick) pickPlanMod("", false);
+    });
+    scroller.addEventListener("pointercancel", () => {
+      drag = null;
+      scroller.classList.remove("is-dragging");
+    });
+    scroller.addEventListener("pointerleave", () => paintPlanMapTip(null));
+    scroller.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      paintPlanMapTip(null);
+      const rect = scroller.getBoundingClientRect();
+      let delta = event.deltaY;
+      if (event.deltaMode === 1) delta *= 16;
+      if (event.deltaMode === 2) delta *= scroller.clientHeight;
+      zoomPlanMapAt(state.planMapZoom - delta * 0.0012, event.clientX - rect.left + scroller.scrollLeft, event.clientY - rect.top + scroller.scrollTop);
+    }, { passive: false });
   }
 
   function copyList() {
     const plan = state.plan;
     if (!plan) return;
     const lines = ["CIFI mod buy order"];
-    if (state.orderMode === "totals") {
+    if (state.orderMode === "totals" || state.orderMode === "map") {
       plan.summary.forEach((row, index) => {
-        lines.push(`${index + 1}. ${row.name} ${row.from} -> ${row.to} (${row.count}) for ${formatCost(row.costLog)} MP`);
+        const mark = state.orderMode === "map" ? (groupDone(row) ? "[x] " : "[ ] ") : "";
+        lines.push(`${mark}${index + 1}. ${row.name} ${row.from} -> ${row.to} (${row.count}) for ${formatCost(row.costLog)} MP`);
       });
     } else {
       plan.groups.forEach((row, index) => {
-        const mark = state.checked[index] ? "[x]" : "[ ]";
+        const mark = groupDone(row) ? "[x]" : "[ ]";
         lines.push(`${mark} ${index + 1}. ${row.name} ${row.from} -> ${row.to} for ${formatCost(row.costLog)} MP`);
       });
     }
@@ -1022,7 +1362,7 @@
       if (!confirm("Set every owned level back to 0?")) return;
       state.levels = {};
       state.plan = null;
-      state.checked = [];
+      state.planBought = {};
       saveState();
       paintLevelList();
     });
@@ -1145,7 +1485,7 @@
       else state.levels[row.code] = row.level;
     });
     state.plan = null;
-    state.checked = [];
+    state.planBought = {};
     state.ownedOnly = true;
     saveState();
     return parsed;
@@ -2087,7 +2427,7 @@
     if (value === 0) delete state.levels[mod.code];
     else state.levels[mod.code] = value;
     state.plan = null;
-    state.checked = [];
+    state.planBought = {};
     saveState();
     const input = document.getElementById("map-level");
     if (input) input.value = String(value);
@@ -2220,6 +2560,11 @@
     };
     place();
     if (!scroller.clientWidth) requestAnimationFrame(place);
+    afterStyles(place);
+  }
+
+  function afterStyles(fn) {
+    if (window.__cssReady) window.__cssReady.then(() => requestAnimationFrame(fn));
   }
 
   function infoButton(id) {

@@ -883,6 +883,8 @@
     snapshotLevels,
     applyLevels,
     logCost,
+    addLog,
+    subLog,
     isUnlocked,
     parseLevelPaste,
     mods: MODEL.mods,

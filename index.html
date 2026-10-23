@@ -24,6 +24,10 @@
   var link = document.createElement("link");
   link.rel = "stylesheet";
   link.href = "styles.css?v=" + version;
+  window.__cssReady = new Promise(function (resolve) {
+    link.onload = resolve;
+    link.onerror = resolve;
+  });
   document.head.appendChild(link);
   try {
     var savedTheme = JSON.parse(localStorage.getItem("cifi-mtc-planner-v1") || "null");

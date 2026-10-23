@@ -489,6 +489,56 @@ input[type="checkbox"] { accent-color: var(--amber); }
 body[data-minimap="side"] .buy.is-next,
 body[data-minimap="off"] .buy.is-next { scroll-margin-top: calc(var(--topbar) + 108px); }
 .buy.is-done { opacity: 0.45; }
+.plan-map { margin-bottom: 14px; }
+.side.has-plan-list {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--topbar) - 40px);
+}
+.side.has-plan-list > * { flex: none; }
+.side.has-plan-list > .plan-map-list { flex: 1 1 auto; min-height: 180px; }
+.plan-map-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 14px -6px 0 0;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+.plan-map-list[hidden] { display: none; }
+.btn-icon { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; object-fit: contain; }
+.btn.is-glow { animation: btn-glow 0.7s ease-in-out 2; }
+@keyframes btn-glow {
+  0%, 100% { border-color: var(--line-strong); box-shadow: none; }
+  50% { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber), 0 0 12px color-mix(in srgb, var(--amber) 55%, transparent); }
+}
+.plan-map-count { margin: 4px 0 2px; }
+.plan-row { cursor: pointer; }
+.buy.plan-row.is-check { grid-template-columns: auto 1fr; gap: 10px; padding: 7px 10px; }
+.plan-row strong { font-size: 13.5px; }
+.plan-row .buy-copy .meta { display: block; }
+.plan-row.is-picked { border-color: #ff4fd8; opacity: 1; }
+.plan-map-scroll {
+  height: max(420px, calc(100vh - var(--topbar) - 300px));
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--map-well);
+  cursor: grab;
+  overscroll-behavior: contain;
+}
+.plan-map-scroll.is-over-node { cursor: pointer; }
+.plan-map-scroll.is-dragging { cursor: grabbing; }
+.plan-map-stage { position: relative; }
+.plan-map-stage img { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; }
+.plan-mark .plan-outline { fill: none; stroke: #4fd8ff; stroke-width: 2.5; }
+.plan-mark .plan-badge { fill: #062a33; stroke: #4fd8ff; stroke-width: 1.4; }
+.plan-mark text { fill: #fff; font-size: 10px; }
+.plan-mark.is-done .plan-outline { stroke: #6fdc8c; stroke-width: 2; stroke-dasharray: 5 4; }
+.plan-mark.is-done .plan-badge { fill: #0d2e17; stroke: #6fdc8c; }
+.plan-mark.is-done text { fill: #b9f5c8; }
+.plan-mark.is-picked .plan-outline { stroke: #ff4fd8; stroke-width: 3.5; stroke-dasharray: none; }
+.plan-mark.is-picked .plan-badge { fill: #3a0a31; stroke: #ff4fd8; }
 body[data-density="compact"] .buy,
 body[data-density="compact"] .mod-row { padding: 3px 10px; gap: 8px; }
 body[data-density="compact"] .list,
@@ -851,6 +901,9 @@ h3 { margin: 18px 0 8px; font-size: 16px; }
   .side { position: static; }
   .side.has-minimap { max-height: none; overflow: visible; }
   .map-scroll { height: 70vh; }
+  .side.has-plan-list { max-height: none; }
+  .plan-map-list { max-height: 320px; }
+  .plan-map-scroll { height: 60vh; }
   .brand-text small { display: none; }
   .topbar-inner { gap: 16px; padding: 0 16px; }
   #app { padding: 16px 16px 48px; }
