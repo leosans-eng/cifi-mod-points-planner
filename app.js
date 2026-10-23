@@ -760,8 +760,7 @@
             </div>
           </div>
           <div class="map-tip" id="plan-map-tip" hidden></div>
-        </div>
-        <p class="note small">Checking a mod marks every level this order buys for it, and saves those levels in this browser. Buy order shows those steps as done too. Clear checks puts levels back to how they were when you built the order.</p>`
+        </div>`
       : `${buyListHead()}
         <div class="list" id="buy-list"></div>
         <p class="note small">Checking a row marks that step and everything above it as bought, and saves those levels in this browser. Unchecking a row undoes that mod back to where the step started. Clear checks puts levels back to how they were when you built the order.</p>`;
