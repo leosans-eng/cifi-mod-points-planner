@@ -63,8 +63,8 @@
     if (level >= mod.max) return null;
     const scLog = mod.scLog;
     const cgLog = mod.cgLog;
-    const sb = mod.sb;
-    const bg = mod.bg;
+    const sb = typeof mod.sb === "function" ? mod.sb(level) : mod.sb;
+    const bg = typeof mod.bg === "function" ? mod.bg(level) : mod.bg;
     const base = sb + level * bg;
     let analytic = NaN;
     if (Number.isFinite(scLog) && Number.isFinite(cgLog) && base > 0) {
@@ -319,6 +319,16 @@
   function compileCall(name, args, src) {
     const upper = name.toUpperCase();
     if (upper === "MAX") return (ctx) => Math.max(...args.map((arg) => arg(ctx)));
+    if (upper === "MIN") return (ctx) => Math.min(...args.map((arg) => arg(ctx)));
+    if (upper === "FLOOR") return (ctx) => Math.floor(args[0](ctx));
+    if (upper === "IFS") {
+      return (ctx) => {
+        for (let k = 0; k + 1 < args.length; k += 2) {
+          if (args[k](ctx)) return args[k + 1](ctx);
+        }
+        throw new Error("IFS had no match");
+      };
+    }
     if (upper === "POW") return (ctx) => Math.pow(args[0](ctx), args[1](ctx));
     if (upper === "LOG10") return (ctx) => Math.log10(args[0](ctx));
     if (upper === "SQRT") return (ctx) => Math.sqrt(args[0](ctx));
@@ -351,6 +361,13 @@
     throw new Error("unknown call " + name + " in " + src);
   }
 
+  function costInput(raw) {
+    const text = String(raw).trim();
+    if (text.charAt(0) !== "=") return bigValue(text);
+    const fn = compileFormula(text.slice(1).replace(/MOD_CODE_TO_LEVEL_NF\(\s*INDIRECT\(\s*ModRef_LocalModCodes\s*\)\s*\)/g, "Local_Level"));
+    return (level) => Number(fn({ vars: { Local_Level: level, TRUE: 1, FALSE: 0 } }));
+  }
+
   function prepareMods() {
     const mods = DATA.mods.map((raw, index) => {
       const formulas = [];
@@ -377,8 +394,8 @@
         max: raw.max,
         sc: bigValue(raw.sc),
         cg: bigValue(raw.cg),
-        sb: bigValue(raw.sb),
-        bg: bigValue(raw.bg),
+        sb: costInput(raw.sb),
+        bg: costInput(raw.bg),
         scLog: bigLog(raw.sc),
         cgLog: bigLog(raw.cg),
         baseBonus: raw.b.slice(),
