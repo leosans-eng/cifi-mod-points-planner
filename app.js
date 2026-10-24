@@ -2736,8 +2736,8 @@
     return `<span class="stepper">
       <input id="${id}" type="text" inputmode="decimal" value="${esc(value)}" aria-label="${esc(label)}">
       <span class="stepper-btns">
-        <button type="button" data-step="1" aria-label="Increase ${esc(label)}">▲</button>
-        <button type="button" data-step="-1" aria-label="Decrease ${esc(label)}">▼</button>
+        <button type="button" tabindex="-1" data-step="1" aria-label="Increase ${esc(label)}">▲</button>
+        <button type="button" tabindex="-1" data-step="-1" aria-label="Decrease ${esc(label)}">▼</button>
       </span>
     </span>`;
   }
