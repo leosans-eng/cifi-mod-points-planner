@@ -622,10 +622,38 @@ body[data-density="compact"] .next .title-line .mod-glyph img { width: 24px; hei
   align-items: start;
 }
 .map-hit { display: grid; gap: 4px; margin: 14px 0 0; min-height: 44px; }
+.map-hit:empty { display: none; }
 .hit-code { font-size: 22px; font-weight: 700; color: var(--level); letter-spacing: 0.01em; }
 .hit-name { display: flex; align-items: center; gap: 8px; font-weight: 600; line-height: 1.35; }
 .hit-status { color: var(--muted); font-size: 13px; }
 .hit-status.warn { color: var(--level); margin: 0; }
+.map-results {
+  display: grid;
+  gap: 2px;
+  max-height: 220px;
+  overflow: auto;
+  margin-top: 2px;
+}
+.map-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg-sunk);
+  color: var(--ink);
+  text-align: left;
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+.map-result b { color: var(--level); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.map-result span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.map-result:hover { border-color: var(--line-strong); }
+.map-result.is-on { border-color: var(--amber); }
 .map-level { margin-top: 6px; }
 #map-level-notes { display: grid; gap: 4px; }
 .map-hit .stepper { display: flex; align-items: stretch; gap: 2px; }
@@ -685,6 +713,16 @@ body[data-density="compact"] .next .title-line .mod-glyph img { width: 24px; hei
 .map-mods .is-maxed .map-badge { fill: #c4201f; stroke: #ff8580; }
 .map-mods text { font-family: "Segoe UI", system-ui, sans-serif; font-weight: 700; text-anchor: middle; }
 .map-mods .map-level { fill: #fff; font-size: 10px; }
+.map-mods .map-code {
+  fill: #ffe14a;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  paint-order: stroke;
+  stroke: #1c0807;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.map-mods .is-big .map-code { font-size: 16px; stroke-width: 4px; }
 .map-mods .map-max { fill: #ff3031; font-size: 8px; letter-spacing: 0.04em; paint-order: stroke; stroke: #1c0807; stroke-width: 2.5px; stroke-linejoin: round; }
 .map-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-bottom: 10px; color: var(--muted); font-size: 13px; }
 .map-legend span { display: flex; align-items: center; gap: 6px; }
@@ -770,6 +808,12 @@ body[data-density="compact"] .next .title-line .mod-glyph img { width: 24px; hei
   stroke-width: 4;
   vector-effect: non-scaling-stroke;
   animation: map-node-pulse 1.4s ease-in-out infinite;
+}
+.map-outline .map-match {
+  fill: rgba(79, 216, 255, 0.08);
+  stroke: #4fd8ff;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
 }
 @keyframes map-node-pulse {
   50% { stroke-opacity: 0.35; }

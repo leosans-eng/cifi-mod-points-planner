@@ -91,6 +91,7 @@
       showIconLevels: true,
       showIconMap: true,
       showMapBlocks: true,
+      showMapCodes: false,
       planBought: {},
     };
     try {
@@ -161,6 +162,7 @@
       showIconLevels: state.showIconLevels,
       showIconMap: state.showIconMap,
       showMapBlocks: state.showMapBlocks,
+      showMapCodes: state.showMapCodes,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
   }
@@ -2040,7 +2042,7 @@
     return (value >= 100 ? value.toFixed(0) : value >= 10 ? value.toFixed(1) : value.toFixed(2)) + units[unit];
   }
 
-  function mapNodeSvg(code) {
+  function mapNodeSvg(code, showCode) {
     const node = MAP_NODES[code];
     const mod = MTC.MODEL.byCode[code];
     if (!node || !mod) return "";
@@ -2054,16 +2056,19 @@
     const badgeTop = y + (big ? 21 : 11);
     const fit = text.length > (big ? 7 : 5) ? ` textLength="${badgeW * 2 - 6}" lengthAdjust="spacingAndGlyphs"` : "";
     const kind = maxed ? "is-maxed" : level > 0 ? "is-owned" : "is-new";
+    const codeFit = code.length > 3 ? ` textLength="${big ? 44 : 28}" lengthAdjust="spacingAndGlyphs"` : "";
+    const codeMark = showCode ? `<text class="map-code" x="${x}" y="${big ? y + 2 : y + 1}"${codeFit}>${esc(code)}</text>` : "";
     return `<g class="map-mod ${kind}${big ? " is-big" : ""}">
       <polygon class="map-tile" points="${chamferRect(x - half, y - half, x + half, y + half, big ? 7 : 5)}"></polygon>
+      ${codeMark}
       <polygon class="map-badge" points="${chamferRect(x - badgeW, badgeTop, x + badgeW, badgeTop + 15, 4)}"></polygon>
       <text class="map-level" x="${x}" y="${badgeTop + 11}"${fit}>${esc(text)}</text>
       ${maxed && !big ? `<text class="map-max" x="${x}" y="${y - 14}">MAX</text>` : ""}
     </g>`;
   }
 
-  function mapNodesSvg(codes) {
-    return codes.map(mapNodeSvg).join("");
+  function mapNodesSvg(codes, showCode) {
+    return codes.map((code) => mapNodeSvg(code, showCode)).join("");
   }
 
   // WIP icon map. Did a bit of it but got really tired. It was an attempt of a high resolution map built from zero.
@@ -2163,6 +2168,8 @@
     render();
   }
 
+  let mapPick = "";
+
   function findModByCode(text) {
     const trimmed = String(text || "").trim();
     if (!trimmed) return null;
@@ -2171,20 +2178,45 @@
     return MTC.mods.find((mod) => mod.code.toLowerCase() === lower) || null;
   }
 
+  function mapLookup(text) {
+    const trimmed = String(text || "").trim();
+    if (!trimmed) return { kind: "empty" };
+    if (/^[A-I]$/i.test(trimmed)) return { kind: "block", letter: trimmed.toUpperCase() };
+    const exact = findModByCode(trimmed);
+    if (exact) return { kind: "mod", mod: exact };
+    const query = trimmed.toLowerCase();
+    const mods = MTC.mods.filter((mod) => {
+      const name = mod.name.toLowerCase();
+      const shortName = String(mod.shortName || "").toLowerCase();
+      return name.includes(query) || shortName.includes(query) || mod.code.toLowerCase().includes(query);
+    }).sort((a, b) => a.code.localeCompare(b.code));
+    if (mods.length === 1) return { kind: "mod", mod: mods[0] };
+    if (mods.length > 1) return { kind: "list", mods };
+    return { kind: "none" };
+  }
+
+  function selectedMapMod() {
+    const found = mapLookup(state.mapQuery);
+    if (found.kind === "mod") return found.mod;
+    if (found.kind !== "list" || !mapPick) return null;
+    return found.mods.find((mod) => mod.code === mapPick) || null;
+  }
+
   function renderMap() {
     const letters = Object.keys(MAP_BLOCKS).sort();
     app.innerHTML = `
       <div class="map-layout">
         <aside class="panel side">
           <label class="field">
-            <span>Find a code</span>
-            <input id="map-query" type="text" placeholder="F03, C5u, D1L" value="${esc(state.mapQuery)}">
+            <span>Find a mod</span>
+            <input id="map-query" type="text" placeholder="F03, Fast-Loop, Cradle" value="${esc(state.mapQuery)}">
           </label>
           <div class="map-hit" id="map-hit"></div>
           <div class="checks stack">
             <label><input id="effects-map-side" type="checkbox" ${state.showEffectMap !== false ? "checked" : ""}> Show what each mod does</label>
             <label><input id="icons-map-side" type="checkbox" ${state.showIconMap !== false ? "checked" : ""}> Show icons</label>
             <label><input id="show-map-blocks" type="checkbox" ${state.showMapBlocks !== false ? "checked" : ""}> Show blocks when clicked</label>
+            <label><input id="show-map-codes" type="checkbox" ${state.showMapCodes ? "checked" : ""}> Show codes</label>
           </div>
           <hr>
           <span class="label">Blocks</span>
@@ -2202,7 +2234,7 @@
             <span><i class="key key-owned"></i>Bought</span>
             <span><i class="key key-new"></i>Not bought</span>
           </div>
-          <p class="note small">Drag to move, scroll to zoom.</p>
+          <p class="note small">Drag to move, scroll to zoom. (PC only)</p>
         </aside>
         <div class="map-scroll" id="map-scroll">
           <div class="map-stage" id="map-stage">
@@ -2237,6 +2269,11 @@
       saveState();
       paintMapHit(false);
     });
+    document.getElementById("show-map-codes").addEventListener("change", (event) => {
+      state.showMapCodes = event.target.checked;
+      saveState();
+      paintMapProgress();
+    });
     document.getElementById("map-in").addEventListener("click", () => zoomMapBy(0.25));
     document.getElementById("map-out").addEventListener("click", () => zoomMapBy(-0.25));
     document.querySelectorAll("[data-block]").forEach((button) => {
@@ -2264,7 +2301,7 @@
     levelPop.addEventListener("click", (event) => {
       const button = event.target.closest("[data-map-step]");
       if (!button || button.disabled) return;
-      const mod = findModByCode(state.mapQuery);
+      const mod = selectedMapMod();
       if (!mod) return;
       setMapLevel(mod, (state.levels[mod.code] || 0) + Number(button.dataset.mapStep));
     });
@@ -2277,7 +2314,7 @@
   function paintMapProgress() {
     const layer = document.getElementById("map-progress");
     if (!layer) return;
-    layer.innerHTML = mapNodesSvg(Object.keys(MAP_NODES));
+    layer.innerHTML = mapNodesSvg(Object.keys(MAP_NODES), state.showMapCodes);
   }
 
   function mapNodeAt(clientX, clientY) {
@@ -2300,6 +2337,13 @@
     return best;
   }
 
+  function nextLevelCostHtml(mod, level) {
+    if (level >= mod.max) return `<span>At max</span>`;
+    const cost = MTC.logCost(mod, level);
+    if (cost == null || Number.isNaN(cost)) return "";
+    return `<span>Next level ${mpAmount(cost)}</span>`;
+  }
+
   function paintMapTip(code, clientX, clientY) {
     const tip = document.getElementById("map-tip");
     if (!tip) return;
@@ -2309,7 +2353,7 @@
       return;
     }
     const level = state.levels[code] || 0;
-    tip.innerHTML = `<span class="tip-title"><b>${esc(mod.code)}</b>${modGlyph(code, "map")}<span>${esc(mod.name)}</span></span>${effectHtml(code, "map")}<span>Level <span class="lv">${level}</span> / ${capLabel(mod)}</span>`;
+    tip.innerHTML = `<span class="tip-title"><b>${esc(mod.code)}</b>${modGlyph(code, "map")}<span>${esc(mod.name)}</span></span>${effectHtml(code, "map")}<span>Level <span class="lv">${level}</span> / ${capLabel(mod)}</span>${nextLevelCostHtml(mod, level)}`;
     tip.hidden = false;
     const width = tip.offsetWidth;
     const left = clientX + 16 + width > window.innerWidth ? clientX - 16 - width : clientX + 16;
@@ -2439,7 +2483,7 @@
   function placeMapLevelPop() {
     const pop = document.getElementById("map-level-pop");
     if (!pop) return;
-    const mod = findModByCode(state.mapQuery);
+    const mod = selectedMapMod();
     const node = mod && MAP_NODES[mod.code];
     if (!mod || !node) {
       dismissMapLevelPop(pop);
@@ -2493,61 +2537,129 @@
     pop.classList.remove("is-in", "is-shown");
   }
 
+  function mapNodeMark(code, className) {
+    const node = MAP_NODES[code];
+    if (!node) return "";
+    const radius = MAP_BIG_NODES.has(code) ? 38 : 27;
+    return `<circle class="${className}" cx="${node.x}" cy="${node.y}" r="${radius}"></circle>`;
+  }
+
+  function mapFocus(mod) {
+    const node = MAP_NODES[mod.code];
+    if (node) return node;
+    const loops = MAP_BLOCKS[mod.code.charAt(0).toUpperCase()];
+    return loops ? blockBounds(loops) : null;
+  }
+
+  function mapOutline(parts) {
+    const body = parts.filter(Boolean).join("");
+    if (!body) return "";
+    return `<svg class="map-outline" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none">${body}</svg>`;
+  }
+
+  function mapModPanel(mod) {
+    const level = state.levels[mod.code] || 0;
+    const node = MAP_NODES[mod.code];
+    return `<b class="hit-code">${esc(mod.code)}</b>
+      <span class="hit-name">${modGlyph(mod.code, "map")}<span>${esc(mod.name)}</span></span>
+      <label class="field map-level">
+        <span>Level</span>
+        <span class="stepper">
+          <input id="map-level" type="text" inputmode="numeric" value="${level}" aria-label="${esc(mod.code)} level">
+          <span class="stepper-btns">
+            <button type="button" data-step="1" aria-label="Increase ${esc(mod.code)} level">▲</button>
+            <button type="button" data-step="-1" aria-label="Decrease ${esc(mod.code)} level">▼</button>
+          </span>
+        </span>
+      </label>
+      <div id="map-level-notes">${mapLevelNotes(mod, level, node)}</div>`;
+  }
+
+  function bindMapModPanel(root, mod) {
+    const levelInput = root.querySelector("#map-level");
+    if (!levelInput) return;
+    dotsForCommas(levelInput);
+    bindSteppers(root);
+    levelInput.addEventListener("change", () => setMapLevel(mod, levelInput.value));
+  }
+
+  function scrollMapResult(root) {
+    const button = root.querySelector(".map-result.is-on");
+    const list = button && button.closest(".map-results");
+    if (!button || !list) return;
+    const listRect = list.getBoundingClientRect();
+    const buttonRect = button.getBoundingClientRect();
+    if (buttonRect.top < listRect.top) list.scrollTop -= listRect.top - buttonRect.top;
+    else if (buttonRect.bottom > listRect.bottom) list.scrollTop += buttonRect.bottom - listRect.bottom;
+  }
+
   function paintMapHit(shouldScroll) {
     const hit = document.getElementById("map-hit");
     const boxes = document.getElementById("map-boxes");
     if (!hit || !boxes) return;
-    const text = state.mapQuery.trim();
-    const mod = findModByCode(text);
-    const letter = ((mod && mod.code) || text).charAt(0).toUpperCase();
-    const loops = MAP_BLOCKS[letter];
+    const found = mapLookup(state.mapQuery);
+    if (found.kind === "list") {
+      if (mapPick && !found.mods.some((mod) => mod.code === mapPick)) mapPick = "";
+    } else {
+      mapPick = "";
+    }
+    const selected = found.kind === "mod"
+      ? found.mod
+      : found.kind === "list" && mapPick
+        ? found.mods.find((mod) => mod.code === mapPick)
+        : null;
+    const activeLetter = found.kind === "block" ? found.letter : found.kind === "mod" ? found.mod.code.charAt(0).toUpperCase() : "";
     document.querySelectorAll("[data-block]").forEach((button) => {
-      button.classList.toggle("is-on", !!loops && button.dataset.block === letter);
+      button.classList.toggle("is-on", !!activeLetter && button.dataset.block === activeLetter);
     });
-    if (!text || !loops) {
+    const showBlock = state.showMapBlocks !== false;
+    let focus = null;
+    if (found.kind === "empty") {
       boxes.innerHTML = "";
-      hit.innerHTML = text
-        ? `<span class="hit-status">Codes start with a block letter from A to I.</span>`
-        : `<span class="hit-status">Type a code, or pick a module.</span>`;
+      hit.innerHTML = "";
       placeMapLevelPop();
-      if (shouldScroll && !text && MAP_NODES.A01) scrollMapTo(MAP_NODES.A01.x, MAP_NODES.A01.y);
+      if (shouldScroll && MAP_NODES.A01) scrollMapTo(MAP_NODES.A01.x, MAP_NODES.A01.y);
       return;
     }
-    const node = mod && MAP_NODES[mod.code];
-    const focus = node || blockBounds(loops);
-    const focusX = focus.x;
-    const focusY = focus.y;
-    const radius = node && MAP_BIG_NODES.has(mod.code) ? 38 : 27;
-    const showBlock = state.showMapBlocks !== false;
-    const nodeMark = node ? `<circle class="map-node" cx="${node.x}" cy="${node.y}" r="${radius}"></circle>` : "";
-    const blockMark = showBlock ? blockPath(letter) : "";
-    boxes.innerHTML = blockMark || nodeMark
-      ? `<svg class="map-outline" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none">${blockMark}${nodeMark}</svg>`
-      : "";
-    if (!mod) {
-      hit.innerHTML = `<b class="hit-code">Block ${letter}</b><span class="hit-status">${showBlock ? "Outlined on the map." : "Block outline is off."}</span>`;
+    if (found.kind === "none") {
+      boxes.innerHTML = "";
+      hit.innerHTML = `<span class="hit-status">No mods match this search.</span>`;
+      placeMapLevelPop();
+      return;
+    }
+    if (found.kind === "block") {
+      const loops = MAP_BLOCKS[found.letter];
+      boxes.innerHTML = mapOutline([showBlock ? blockPath(found.letter) : ""]);
+      hit.innerHTML = `<b class="hit-code">Block ${found.letter}</b><span class="hit-status">${showBlock ? "Outlined on the map." : "Block outline is off."}</span>`;
+      focus = blockBounds(loops);
+    } else if (found.kind === "mod") {
+      const letter = found.mod.code.charAt(0).toUpperCase();
+      boxes.innerHTML = mapOutline([
+        showBlock && MAP_BLOCKS[letter] ? blockPath(letter) : "",
+        mapNodeMark(found.mod.code, "map-node"),
+      ]);
+      hit.innerHTML = mapModPanel(found.mod);
+      bindMapModPanel(hit, found.mod);
+      focus = mapFocus(found.mod);
     } else {
-      const level = state.levels[mod.code] || 0;
-      hit.innerHTML = `<b class="hit-code">${esc(mod.code)}</b>
-        <span class="hit-name">${modGlyph(mod.code, "map")}<span>${esc(mod.name)}</span></span>
-        <label class="field map-level">
-          <span>Level</span>
-          <span class="stepper">
-            <input id="map-level" type="text" inputmode="numeric" value="${level}" aria-label="${esc(mod.code)} level">
-            <span class="stepper-btns">
-              <button type="button" data-step="1" aria-label="Increase ${esc(mod.code)} level">▲</button>
-              <button type="button" data-step="-1" aria-label="Decrease ${esc(mod.code)} level">▼</button>
-            </span>
-          </span>
-        </label>
-        <div id="map-level-notes">${mapLevelNotes(mod, level, node)}</div>`;
-      const levelInput = document.getElementById("map-level");
-      dotsForCommas(levelInput);
-      bindSteppers(hit);
-      levelInput.addEventListener("change", () => setMapLevel(mod, levelInput.value));
+      const marks = found.mods.map((mod) => mod.code === mapPick ? "" : mapNodeMark(mod.code, "map-match"));
+      if (selected && MAP_NODES[selected.code]) marks.push(mapNodeMark(selected.code, "map-node"));
+      else if (selected && showBlock && MAP_BLOCKS[selected.code.charAt(0).toUpperCase()]) marks.push(blockPath(selected.code.charAt(0).toUpperCase()));
+      boxes.innerHTML = mapOutline(marks);
+      const count = `${found.mods.length} mods`;
+      hit.innerHTML = `${selected ? mapModPanel(selected) : ""}<span class="hit-status">${count}</span><div class="map-results">${found.mods.map((mod) => `<button type="button" class="map-result${mod.code === mapPick ? " is-on" : ""}" data-map-pick="${esc(mod.code)}"><b>${esc(mod.code)}</b><span>${esc(mod.name)}</span></button>`).join("")}</div>`;
+      if (selected) bindMapModPanel(hit, selected);
+      hit.querySelectorAll("[data-map-pick]").forEach((button) => {
+        button.addEventListener("click", () => {
+          mapPick = button.dataset.mapPick;
+          paintMapHit(true);
+        });
+      });
+      scrollMapResult(hit);
+      if (selected) focus = mapFocus(selected);
     }
     placeMapLevelPop();
-    if (shouldScroll) scrollMapTo(focusX, focusY);
+    if (shouldScroll && focus) scrollMapTo(focus.x, focus.y);
   }
 
   function scrollMapTo(x, y) {
