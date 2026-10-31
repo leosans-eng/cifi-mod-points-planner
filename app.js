@@ -759,6 +759,9 @@
             <div class="plan-map-stage" id="plan-map-stage">
               <img src="${MAP_IMAGE}" alt="Loop mod tree with the mods in this order marked." draggable="false">
               <svg class="map-mods" id="plan-map-svg" viewBox="0 0 ${MAP_SIZE.w} ${MAP_SIZE.h}" preserveAspectRatio="none" aria-hidden="true"></svg>
+              <div id="plan-map-pop" class="plan-map-pop" hidden>
+                <button type="button" id="plan-map-buy"></button>
+              </div>
             </div>
           </div>
           <div class="map-tip" id="plan-map-tip" hidden></div>
@@ -1096,10 +1099,52 @@
     stage.style.width = Math.round(MAP_SIZE.w * state.planMapZoom) + "px";
     stage.style.height = Math.round(MAP_SIZE.h * state.planMapZoom) + "px";
     bindPlanMapPointer();
+    bindPlanMapPop();
+    placePlanMapPop();
     if (center) {
       const focus = planMapPick || (left.find((row) => MAP_NODES[row.code]) || {}).code || codes[0];
       if (focus) scrollPlanMapTo(focus);
     }
+  }
+
+  function planMapPickRow() {
+    const plan = state.plan;
+    if (!plan || !planMapPick) return null;
+    return plan.summary.find((row) => row.code === planMapPick) || null;
+  }
+
+  function bindPlanMapPop() {
+    const pop = document.getElementById("plan-map-pop");
+    if (!pop || pop.dataset.bound) return;
+    pop.dataset.bound = "1";
+    ["pointerdown", "pointerup", "pointermove"].forEach((type) => {
+      pop.addEventListener(type, (event) => event.stopPropagation());
+    });
+    pop.querySelector("button").addEventListener("click", () => {
+      const row = planMapPickRow();
+      if (!row) return;
+      setModBought(row.code, !groupDone(row));
+    });
+  }
+
+  function placePlanMapPop() {
+    const pop = document.getElementById("plan-map-pop");
+    if (!pop) return;
+    const row = planMapPickRow();
+    const node = row && MAP_NODES[row.code];
+    if (!node) {
+      pop.hidden = true;
+      return;
+    }
+    const done = groupDone(row);
+    const half = (MAP_BIG_NODES.has(row.code) ? 25.5 : 16.5) + 3;
+    pop.style.left = ((node.x + half + 6) * state.planMapZoom) + "px";
+    pop.style.top = (node.y * state.planMapZoom) + "px";
+    const button = pop.querySelector("button");
+    button.textContent = done ? "Undo" : "Mark bought";
+    button.classList.toggle("is-done", done);
+    button.setAttribute("aria-label", done ? `Mark ${row.name} as not bought` : `Mark ${row.name} bought`);
+    pop.hidden = false;
   }
 
   function planMapMarkSvg(code) {
@@ -1131,6 +1176,7 @@
     }
     const svg = document.getElementById("plan-map-svg");
     if (svg) svg.querySelectorAll(".plan-mark").forEach((mark) => mark.classList.toggle("is-picked", mark.dataset.code === planMapPick));
+    placePlanMapPop();
     if (scrollMap && planMapPick) scrollPlanMapTo(planMapPick);
   }
 
@@ -1214,6 +1260,7 @@
     state.planMapZoom = next;
     stage.style.width = Math.round(MAP_SIZE.w * next) + "px";
     stage.style.height = Math.round(MAP_SIZE.h * next) + "px";
+    placePlanMapPop();
     scroller.scrollLeft = anchorX * ratio - (anchorX - scroller.scrollLeft);
     scroller.scrollTop = anchorY * ratio - (anchorY - scroller.scrollTop);
     saveState();

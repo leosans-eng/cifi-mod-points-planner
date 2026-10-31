@@ -539,6 +539,27 @@ body[data-minimap="off"] .buy.is-next { scroll-margin-top: calc(var(--topbar) + 
 .plan-mark.is-done text { fill: #b9f5c8; }
 .plan-mark.is-picked .plan-outline { stroke: #ff4fd8; stroke-width: 3.5; stroke-dasharray: none; }
 .plan-mark.is-picked .plan-badge { fill: #3a0a31; stroke: #ff4fd8; }
+.plan-map-pop { position: absolute; z-index: 4; transform: translateY(-50%); }
+.plan-map-pop[hidden] { display: none; }
+.plan-map-pop button {
+  height: 26px;
+  margin: 0;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 0;
+  background: #062a33;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12.5px;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1.5px #4fd8ff;
+  clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 5px, 100% calc(100% - 5px), calc(100% - 5px) 100%, 5px 100%, 0 calc(100% - 5px), 0 5px);
+  cursor: pointer;
+}
+.plan-map-pop button:hover { box-shadow: inset 0 0 0 1.5px #a8ecff; }
+.plan-map-pop button.is-done { background: #0d2e17; color: #b9f5c8; box-shadow: inset 0 0 0 1.5px #6fdc8c; }
+.plan-map-pop button.is-done:hover { box-shadow: inset 0 0 0 1.5px #b9f5c8; }
 body[data-density="compact"] .buy,
 body[data-density="compact"] .mod-row { padding: 3px 10px; gap: 8px; }
 body[data-density="compact"] .list,
