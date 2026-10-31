@@ -1,8 +1,17 @@
 (function () {
   const STORAGE_KEY = "cifi-mtc-planner-v1";
+  const SYNC_KEY = "cifi-mtc-sync-v1";
+  // Address of the Cloudflare Worker in cloud/worker.js. Sync stays hidden while this is empty.
+  const SYNC_URL = "https://cifi-sync.leosantos2127.workers.dev";
+  const SYNC_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
   const app = document.getElementById("app");
   const tabs = document.querySelectorAll(".tab");
 
+  let sync = readSync();
+  let syncTimer = null;
+  let syncBusy = false;
+  let syncStatus = "";
+  let syncPhase = "idle";
   const state = loadState();
   let revealNext = false;
   applyTheme();
@@ -92,6 +101,7 @@
       showIconMap: true,
       showMapBlocks: true,
       showMapCodes: false,
+      syncInviteDismissed: false,
       planBought: {},
     };
     try {
@@ -163,8 +173,11 @@
       showIconMap: state.showIconMap,
       showMapBlocks: state.showMapBlocks,
       showMapCodes: state.showMapCodes,
+      syncInviteDismissed: state.syncInviteDismissed,
     };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(copy));
+    const json = JSON.stringify(copy);
+    localStorage.setItem(STORAGE_KEY, json);
+    queueSync(json);
   }
 
   function paintTabs() {
@@ -419,6 +432,7 @@
       ? `${checked} of ${plan.groups.length} rows checked`
       : "No buy order yet";
     app.innerHTML = `
+      ${showSyncInvite() ? syncInviteHtml() : ""}
       <div class="home">
         <section class="home-intro">
           <p class="kicker">A Fan-made tool · Pre-Ouro only</p>
@@ -477,18 +491,22 @@
             </dl>
           </section>
           <section class="card">
-            <h2 class="card-title">Run history</h2>
-            <div id="run-history"></div>
+            <h2 class="card-title">Saves</h2>
+            <div class="save-part">
+              <h3 class="save-head">This device <span class="save-tag is-on">Always on</span></h3>
+              <p class="note small">Levels, settings, and run history save automatically in this browser. A backup is a file you keep yourself.</p>
+              <div class="btn-pair">
+                <button type="button" class="btn ghost" id="backup-save">Download backup</button>
+                <button type="button" class="btn ghost" id="backup-load">Load backup</button>
+              </div>
+              <button type="button" class="btn ghost danger wide" id="backup-delete">Delete data on this device</button>
+              <p class="note small" id="backup-msg"></p>
+            </div>
+            ${SYNC_URL ? `<div class="save-part" id="home-sync">${syncControlsHtml(true)}</div>` : ""}
           </section>
           <section class="card">
-            <h2 class="card-title">Your data</h2>
-            <p class="note small">Everything is saved in this browser only. Download a backup to keep a copy, or to move your levels, settings, and run history to another browser.</p>
-            <div class="btn-pair">
-              <button type="button" class="btn ghost" id="backup-save">Download backup</button>
-              <button type="button" class="btn ghost" id="backup-load">Load backup</button>
-            </div>
-            <button type="button" class="btn ghost danger wide" id="backup-delete">Delete all data</button>
-            <p class="note small" id="backup-msg"></p>
+            <h2 class="card-title">Run history</h2>
+            <div id="run-history"></div>
           </section>
         </aside>
       </div>`;
@@ -609,15 +627,470 @@
       if (!confirm("Replace everything saved in this browser with this backup?")) return;
       saved.tab = "home";
       localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      if (sync) {
+        sync.dirty = true;
+        writeSync();
+      }
       location.reload();
     };
     reader.readAsText(file);
   }
 
   function deleteAllData() {
-    if (!confirm("Delete every level, setting, and run saved in this browser?")) return;
+    const cloudNote = syncOn() ? "\n\nThe cloud save is not deleted. This device just stops syncing." : "";
+    if (!confirm(`Delete every level, setting, and run saved on this device?${cloudNote}`)) return;
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(SYNC_KEY);
     location.reload();
+  }
+
+  function readSync() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SYNC_KEY) || "null");
+      return saved && typeof saved.code === "string" ? saved : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function writeSync() {
+    if (sync) localStorage.setItem(SYNC_KEY, JSON.stringify(sync));
+    else localStorage.removeItem(SYNC_KEY);
+  }
+
+  function syncOn() {
+    return !!(SYNC_URL && sync && sync.code);
+  }
+
+  function hashText(text) {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(36) + ":" + text.length;
+  }
+
+  function cleanSyncCode(raw) {
+    const code = String(raw || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+    if (code.length !== 12) return null;
+    return [...code].every((ch) => SYNC_ALPHABET.includes(ch)) ? code : null;
+  }
+
+  function shownSyncCode(code) {
+    return code.match(/.{1,4}/g).join("-");
+  }
+
+  function syncLink(code) {
+    return `${location.origin}${location.pathname}?sync=${code}`;
+  }
+
+  async function syncRequest(method, path, body, keepalive) {
+    const res = await fetch(SYNC_URL.replace(/\/+$/, "") + path, {
+      method,
+      headers: body ? { "Content-Type": "application/json" } : undefined,
+      body,
+      keepalive: !!keepalive,
+    });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (err) {
+      data = null;
+    }
+    return { status: res.status, ok: res.ok, data: data || {} };
+  }
+
+  function setSyncStatus(text, phase) {
+    syncStatus = text;
+    if (phase) syncPhase = phase;
+    document.querySelectorAll("[data-sync-status]").forEach((el) => { el.textContent = text; });
+    paintSyncChip();
+  }
+
+  function syncedLine() {
+    if (!sync || !sync.updatedAt) return "";
+    const when = new Date(sync.updatedAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+    return `Last synced ${when}.`;
+  }
+
+  function syncMode() {
+    if (!syncOn()) return "off";
+    if (syncPhase === "saving" || syncPhase === "offline" || syncPhase === "error") return syncPhase;
+    return "on";
+  }
+
+  function cloudIcon(mode) {
+    const marks = {
+      on: `<path d="M9.3 13.6l2 2 3.6-3.6"></path>`,
+      saving: `<path d="M12 16.5v-5M9.6 13.6L12 11.2l2.4 2.4"></path>`,
+      offline: `<path d="M4 4l16 16"></path>`,
+      error: `<path d="M12 10.6v3.2M12 16.2v.2"></path>`,
+      off: "",
+    };
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M7 18.5h10.4a4.1 4.1 0 0 0 .5-8.17A6 6 0 0 0 6.3 9.2 4.7 4.7 0 0 0 7 18.5z"></path>${marks[mode]}
+    </svg>`;
+  }
+
+  function paintSyncChip() {
+    const chip = document.getElementById("sync-chip");
+    if (!chip) return;
+    chip.hidden = !SYNC_URL;
+    if (!SYNC_URL) return;
+    const mode = syncMode();
+    const labels = { off: "Cloud save", on: "Synced", saving: "Saving…", offline: "Offline", error: "Not synced" };
+    const title = mode === "off"
+      ? "Cloud save is off. Click to turn it on."
+      : syncStatus || syncedLine() || "Cloud save is on.";
+    chip.className = `sync-chip is-${mode}`;
+    chip.innerHTML = `${cloudIcon(mode)}<span class="sync-chip-label">${labels[mode]}</span>`;
+    chip.title = title;
+    chip.setAttribute("aria-label", `${labels[mode]}. ${title}`);
+  }
+
+  function showSyncInvite() {
+    return !!SYNC_URL && !syncOn() && !state.syncInviteDismissed && Object.keys(state.levels).length > 0;
+  }
+
+  function syncInviteHtml() {
+    return `<section class="card sync-invite" id="sync-invite">
+      <div class="sync-invite-text">
+        <b>Use this on more than one device?</b>
+        <span>Turn on cloud save. No account or email needed. You'll get a code to type on your other device.</span>
+      </div>
+      <div class="sync-invite-actions">
+        <button type="button" class="btn" data-sync="start">Turn on cloud save</button>
+        <button type="button" class="btn ghost" data-sync="have-code">I have a code</button>
+        <button type="button" class="btn ghost" data-sync="dismiss">Not now</button>
+      </div>
+    </section>`;
+  }
+
+  function syncControlsHtml(withHead) {
+    const on = syncOn();
+    const head = withHead
+      ? `<h3 class="save-head">Cloud save <span class="save-tag${on ? " is-on" : ""}">${on ? "On" : "Off"}</span></h3>`
+      : "";
+    if (!on) {
+      return `<div class="sync-box">
+        ${head}
+        <p class="note small">Use the same progress on another device. No account or email needed: you get a code to type on your other device.</p>
+        <button type="button" class="btn ghost wide" data-sync="start">Turn on cloud save</button>
+        <div class="sync-join">
+          <input type="text" data-sync-input placeholder="Code from another device" autocomplete="off" spellcheck="false" aria-label="Code from another device">
+          <button type="button" class="btn ghost" data-sync="join">Connect</button>
+        </div>
+        <p class="note small" data-sync-status>${esc(syncStatus)}</p>
+      </div>`;
+    }
+    return `<div class="sync-box">
+      ${head}
+      <p class="sync-code">${esc(shownSyncCode(sync.code))}</p>
+      <p class="note small">This code is your cloud save. Copy it somewhere safe. Anyone with it can see and change your save. If you lose it, your progress stays on this device, and you can turn cloud save on again for a new code.</p>
+      <div class="btn-pair">
+        <button type="button" class="btn ghost" data-sync="copy-code">Copy code</button>
+        <button type="button" class="btn ghost" data-sync="copy-link">Copy link</button>
+      </div>
+      <p class="note small" data-sync-status>${esc(syncStatus || syncedLine())}</p>
+      <div class="btn-pair">
+        <button type="button" class="btn ghost" data-sync="off">Turn off here</button>
+        <button type="button" class="btn ghost danger" data-sync="delete">Delete cloud save</button>
+      </div>
+    </div>`;
+  }
+
+  function configSyncHtml() {
+    const on = syncOn();
+    const label = `<p class="config-label">Cloud save <span class="save-tag${on ? " is-on" : ""}">${on ? "On" : "Off"}</span></p>`;
+    if (!on) {
+      return `${label}
+        <p class="config-hint">Use your progress on other devices. No account or email needed.</p>
+        <div class="config-sync-row">
+          <button type="button" class="btn ghost small-btn" data-sync="start">Turn on cloud save</button>
+          <span class="config-or">or</span>
+          <input type="text" data-sync-input placeholder="Code from another device" autocomplete="off" spellcheck="false" aria-label="Code from another device">
+          <button type="button" class="btn ghost small-btn" data-sync="join">Connect</button>
+        </div>
+        <p class="config-hint" data-sync-status>${esc(syncStatus)}</p>`;
+    }
+    return `${label}
+      <p class="config-hint">Anyone with this code can see and change your save. Keep it somewhere safe.</p>
+      <div class="config-actions">
+        <span class="sync-code">${esc(shownSyncCode(sync.code))}</span>
+        <button type="button" class="btn ghost small-btn" data-sync="copy-code">Copy code</button>
+        <button type="button" class="btn ghost small-btn" data-sync="copy-link">Copy link</button>
+        <button type="button" class="btn ghost small-btn" data-sync="off">Turn off here</button>
+        <button type="button" class="btn ghost danger small-btn" data-sync="delete">Delete cloud save</button>
+      </div>
+      <p class="config-hint" data-sync-status>${esc(syncStatus || syncedLine())}</p>`;
+  }
+
+  function paintSyncViews() {
+    paintSyncChip();
+    const config = document.getElementById("config-sync");
+    if (config) config.innerHTML = SYNC_URL ? configSyncHtml() : "";
+    const home = document.getElementById("home-sync");
+    if (home) home.innerHTML = syncControlsHtml(true);
+    const invite = document.getElementById("sync-invite");
+    if (invite && !showSyncInvite()) invite.remove();
+  }
+
+  function queueSync(json) {
+    if (!syncOn()) return;
+    if (!sync.dirty && hashText(json) === sync.hash) return;
+    sync.dirty = true;
+    writeSync();
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => pushSync(false), 2500);
+    setSyncStatus("Waiting to save to the cloud…", "saving");
+  }
+
+  async function pushSync(keepalive) {
+    if (!syncOn()) return;
+    clearTimeout(syncTimer);
+    syncTimer = null;
+    if (syncBusy) {
+      syncTimer = setTimeout(() => pushSync(false), 1000);
+      return;
+    }
+    const json = localStorage.getItem(STORAGE_KEY) || "{}";
+    const hash = hashText(json);
+    const body = `{"base":${Number(sync.updatedAt) || 0},"state":${json}}`;
+    syncBusy = true;
+    setSyncStatus("Saving to the cloud…", "saving");
+    try {
+      const res = await syncRequest("PUT", `/saves/${sync.code}`, body, keepalive && body.length < 60000);
+      syncBusy = false;
+      if (!syncOn()) return;
+      if (res.ok) {
+        sync.updatedAt = res.data.updatedAt;
+        sync.hash = hash;
+        sync.dirty = hashText(localStorage.getItem(STORAGE_KEY) || "{}") !== hash;
+        writeSync();
+        if (sync.dirty) {
+          setSyncStatus("Waiting to save to the cloud…", "saving");
+          syncTimer = setTimeout(() => pushSync(false), 2500);
+        } else {
+          setSyncStatus(syncedLine(), "idle");
+        }
+      } else if (res.status === 409) {
+        resolveSyncConflict(res.data);
+      } else if (res.status === 404) {
+        stopSync("This cloud save no longer exists, so cloud save is off on this device.");
+      } else if (res.data.error === "too-big") {
+        setSyncStatus("This save is too large for cloud save. It's still saved on this device.", "error");
+      } else {
+        setSyncStatus("Couldn't save to the cloud. Trying again soon.", "error");
+        syncTimer = setTimeout(() => pushSync(false), 30000);
+      }
+    } catch (err) {
+      syncBusy = false;
+      setSyncStatus("Offline. Progress is saved on this device and will sync when you're back online.", "offline");
+      syncTimer = setTimeout(() => pushSync(false), 30000);
+    }
+  }
+
+  async function pullSync() {
+    if (!syncOn() || syncBusy) return;
+    try {
+      const res = await syncRequest("GET", `/saves/${sync.code}`);
+      if (!syncOn()) return;
+      if (res.status === 404) {
+        stopSync("This cloud save no longer exists, so cloud save is off on this device.");
+        return;
+      }
+      if (!res.ok) {
+        setSyncStatus("Couldn't reach the cloud save. Progress is still saved on this device.", "error");
+        return;
+      }
+      if (res.data.updatedAt > (Number(sync.updatedAt) || 0)) {
+        if (sync.dirty) resolveSyncConflict(res.data);
+        else applyCloudSave(res.data);
+      } else if (sync.dirty) {
+        pushSync(false);
+      } else {
+        setSyncStatus(syncedLine(), "idle");
+      }
+    } catch (err) {
+      setSyncStatus("Offline. Progress is saved on this device and will sync when you're back online.", "offline");
+    }
+  }
+
+  function resolveSyncConflict(remote) {
+    const useCloud = confirm("Another device saved newer progress to the cloud.\n\nOK: load the cloud save on this device.\nCancel: keep this device's progress and replace the cloud save with it.");
+    if (useCloud) {
+      applyCloudSave(remote);
+      return;
+    }
+    sync.updatedAt = remote.updatedAt;
+    sync.dirty = true;
+    writeSync();
+    pushSync(false);
+  }
+
+  function applyCloudSave(remote) {
+    const json = JSON.stringify(Object.assign({}, remote.state, { tab: state.tab }));
+    localStorage.setItem(STORAGE_KEY, json);
+    sync.updatedAt = remote.updatedAt;
+    sync.hash = hashText(json);
+    sync.dirty = false;
+    writeSync();
+    location.reload();
+  }
+
+  function stopSync(message) {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+    sync = null;
+    writeSync();
+    syncStatus = message || "";
+    syncPhase = "idle";
+    paintSyncViews();
+  }
+
+  async function startCloudSync(fromInvite) {
+    saveState();
+    const json = localStorage.getItem(STORAGE_KEY) || "{}";
+    setSyncStatus("Turning on cloud save…");
+    try {
+      const res = await syncRequest("POST", "/saves", `{"state":${json}}`);
+      if (!res.ok) {
+        setSyncStatus(res.data.error === "too-big" ? "This save is too large for cloud save." : "Couldn't reach the cloud save server. Try again in a moment.");
+        return;
+      }
+      sync = { code: res.data.code, updatedAt: res.data.updatedAt, hash: hashText(json), dirty: false };
+      writeSync();
+      syncStatus = "";
+      syncPhase = "idle";
+      paintSyncViews();
+      const home = document.getElementById("home-sync");
+      if (fromInvite && home) home.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    } catch (err) {
+      setSyncStatus("Couldn't reach the cloud save server. Check your connection and try again.");
+    }
+  }
+
+  async function joinCloudSync(raw) {
+    const code = cleanSyncCode(raw);
+    if (!code) {
+      setSyncStatus("That code doesn't look right. It has 12 letters and numbers.");
+      return;
+    }
+    setSyncStatus("Connecting…");
+    try {
+      const res = await syncRequest("GET", `/saves/${code}`);
+      if (res.status === 404) {
+        setSyncStatus("No cloud save was found for that code.");
+        return;
+      }
+      if (!res.ok) {
+        setSyncStatus("Couldn't reach the cloud save server. Try again in a moment.");
+        return;
+      }
+      const hasProgress = Object.keys(state.levels).length > 0 || (state.runs || []).length > 0;
+      if (hasProgress && !confirm("Replace the progress on this device with the cloud save?\n\nTip: Download a backup first if you want to keep this device's progress.")) {
+        setSyncStatus("");
+        return;
+      }
+      sync = { code, updatedAt: 0, hash: "", dirty: false };
+      applyCloudSave(res.data);
+    } catch (err) {
+      setSyncStatus("Couldn't reach the cloud save server. Check your connection and try again.");
+    }
+  }
+
+  async function deleteCloudSave() {
+    if (!syncOn()) return;
+    if (!confirm("Delete the cloud save for this code? Other devices using it will stop syncing. The progress saved in each browser stays.")) return;
+    try {
+      const res = await syncRequest("DELETE", `/saves/${sync.code}`);
+      if (!res.ok) {
+        setSyncStatus("Couldn't delete the cloud save. Try again in a moment.");
+        return;
+      }
+      stopSync("Cloud save deleted. Sync is off on this device.");
+    } catch (err) {
+      setSyncStatus("Couldn't reach the sync server. Check your connection and try again.");
+    }
+  }
+
+  function copyToButton(button, text) {
+    const label = button.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      button.textContent = "Copied";
+    }).catch(() => {
+      button.textContent = "Copy failed";
+    }).finally(() => {
+      setTimeout(() => { button.textContent = label; }, 1500);
+    });
+  }
+
+  function runSyncAction(button) {
+    const action = button.dataset.sync;
+    if (action === "start") {
+      startCloudSync(!!button.closest("#sync-invite"));
+    } else if (action === "join") {
+      const input = button.parentElement.querySelector("[data-sync-input]");
+      joinCloudSync(input ? input.value : "");
+    } else if (action === "copy-code") {
+      copyToButton(button, shownSyncCode(sync.code));
+    } else if (action === "copy-link") {
+      copyToButton(button, syncLink(sync.code));
+    } else if (action === "off") {
+      if (!confirm("Stop cloud save on this device? Your progress stays here, and the cloud save stays for your other devices.")) return;
+      stopSync("Cloud save is off on this device.");
+    } else if (action === "delete") {
+      deleteCloudSave();
+    } else if (action === "have-code") {
+      const input = document.querySelector("#home-sync [data-sync-input]");
+      if (!input) return;
+      input.scrollIntoView({ block: "center", behavior: "smooth" });
+      input.focus({ preventScroll: true });
+    } else if (action === "dismiss") {
+      state.syncInviteDismissed = true;
+      saveState();
+      const invite = document.getElementById("sync-invite");
+      if (invite) invite.remove();
+    }
+  }
+
+  function bootSync() {
+    const params = new URLSearchParams(location.search);
+    const linked = params.get("sync");
+    if (linked !== null) {
+      params.delete("sync");
+      const rest = params.toString();
+      history.replaceState(null, "", location.pathname + (rest ? `?${rest}` : "") + location.hash);
+    }
+    paintSyncViews();
+    if (!SYNC_URL) return;
+    document.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-sync]");
+      if (button) runSyncAction(button);
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" || !event.target.matches("[data-sync-input]")) return;
+      joinCloudSync(event.target.value);
+    });
+    const chip = document.getElementById("sync-chip");
+    if (chip) chip.addEventListener("click", () => {
+      const menu = document.getElementById("config-menu");
+      const opening = !menu || menu.hidden;
+      setConfigOpen(opening);
+      const section = document.getElementById("config-sync");
+      if (opening && section) section.scrollIntoView({ block: "nearest" });
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") pullSync();
+      else if (sync && sync.dirty) pushSync(true);
+    });
+    const code = cleanSyncCode(linked);
+    if (code && (!sync || sync.code !== code)) {
+      joinCloudSync(code);
+      return;
+    }
+    pullSync();
   }
 
   app.addEventListener("click", (event) => {
@@ -3228,4 +3701,5 @@
 
   paintTabs();
   render();
+  bootSync();
 })();
